@@ -19,8 +19,15 @@
 > history was already rewritten once for this. Check before committing, not after.
 
 Postplan with a Convex backend. Fork of postplan (MIT, t3dotgg) with the express +
-Postgres + S3 server replaced by Convex functions and Convex tables. The CLI is
-upstream's, unmodified.
+Postgres + S3 server replaced by Convex functions and Convex tables. The CLI started as
+upstream's and has grown commands of its own (`render`, `skills`, `asset`, ...).
+
+## Upstream
+
+Upstream is the npm package `postplan`; it has no public repo. The `upstream` branch holds each
+release's tarball untouched, and syncing is a merge of that branch into `main`. Run the
+`update` skill (`.agents/skills/update/SKILL.md`, `/update` in Claude Code) to pull a new
+release. Never edit the `upstream` branch by hand.
 
 ## The deployment: prod is the only environment
 
@@ -65,7 +72,7 @@ and a failed PUT never leaves a row pointing at nothing.
 
 ## The API contract is upstream's
 
-`bin/postplan.js` is unmodified, so the three endpoints must keep their exact
+The CLI talks to these endpoints, and so does upstream's, so they must keep their exact
 shapes or the CLI breaks:
 
 - `POST /api/uploads` -> `{ draftId, publicUrl, rawUrl, versionNumber, warnings[] }`

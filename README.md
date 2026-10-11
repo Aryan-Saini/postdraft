@@ -317,4 +317,5 @@ postdraft started as a fork of [postplan](https://www.npmjs.com/package/postplan
 by Theo ([t3dotgg](https://github.com/t3dotgg)), MIT licensed. The idea, the
 original CLI and the HTML security policy in `src/html-policy.js` are his.
 The upstream source is the npm package itself (there is no public repo); the
-first commit here vendors postplan 0.0.4 from npm unmodified. Thank you, Theo.
+first commit here vendors postplan 0.0.4 from npm unmodified, and the `upstream` branch
+carries each later release so it can be merged in (see the `update` skill). Thank you, Theo.
