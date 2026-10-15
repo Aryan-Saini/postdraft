@@ -127,6 +127,10 @@ test("table cells carry their alignment and tone classes, inside a scroll wrappe
   const narrow = body("| a | b | c |\n|:---|:---:|---:|\n| 1 | 2 | 3 |\n");
   assert.match(narrow, /<div class="tbl-wrap"><table>/);
   assert.match(narrow, /<td class="center">2<\/td>/);
+
+  // Six columns breaks out of the reading column instead of squeezing.
+  const wide = body("| a | b | c | d | e | f |\n|---|---|---|---|---|---|\n| 1 | 2 | 3 | 4 | 5 | 6 |\n");
+  assert.match(wide, /<div class="tbl-wrap wide"><table class="full">/);
 });
 
 test("a task list renders checkbox items and leaves plain items alone", () => {
