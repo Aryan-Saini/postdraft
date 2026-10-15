@@ -233,17 +233,23 @@ function fillMathBlocks(html) {
   return html.replace(MATH_BLOCK_PLACEHOLDER, (_m, attr) => renderMathBlock(unescapeHtml(attr)));
 }
 
+/** From this many columns a table breaks out of the reading column. */
+const WIDE_TABLE_COLS = 6;
+
 /**
  * Give every table the horizontal scroll wrapper, and let a table with four or
  * more columns take the full column width; a narrow one sizes to its content,
- * which is what the renderer does.
+ * which is what the renderer does. Six or more columns cannot fit the reading
+ * column without squeezing cells to a word a line, so that wrapper is `wide`
+ * and may grow past the column toward the viewport.
  */
 function wrapTables(html) {
   return html.replace(/<table>([\s\S]*?)<\/table>/g, (_, inner) => {
     const firstRow = /<tr>([\s\S]*?)<\/tr>/.exec(inner)?.[1] ?? "";
     const cols = (firstRow.match(/<t[hd][\s>]/g) ?? []).length;
     const cls = cols >= 4 ? ' class="full"' : "";
-    return `<div class="tbl-wrap"><table${cls}>${inner}</table></div>`;
+    const wrap = cols >= WIDE_TABLE_COLS ? "tbl-wrap wide" : "tbl-wrap";
+    return `<div class="${wrap}"><table${cls}>${inner}</table></div>`;
   });
 }
 

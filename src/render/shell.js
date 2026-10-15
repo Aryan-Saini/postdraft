@@ -137,6 +137,15 @@ kbd{font:.85em var(--mono);background:var(--surface-2);border:1px solid var(--li
 
 /* ---- tables: fully gridded, header band, like the renderer ---- */
 .tbl-wrap{overflow-x:auto;margin:0 0 20px;-webkit-overflow-scrolling:touch}
+/* A wide table sizes to its content between the column and the viewport (less
+   the page gutter), centred on the column. A grid item overflows its track on
+   both sides when centred, so it spills evenly instead of off the right edge. */
+.tbl-wrap.wide{justify-self:center;width:max-content;min-width:100%;max-width:min(calc(100vw - 44px),1240px)}
+/* macOS hides overlay scrollbars, so a table that still overflows gave no sign
+   it scrolls. A styled scrollbar is always drawn. */
+.tbl-wrap::-webkit-scrollbar{height:8px}
+.tbl-wrap::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px}
+.tbl-wrap::-webkit-scrollbar-track{background:transparent}
 table{border-collapse:collapse;font-size:15.5px;min-width:min(100%,440px)}
 th,td{border:1px solid var(--line-strong);padding:9px 14px;text-align:left;vertical-align:middle}
 th{font-weight:400;color:var(--ink);background:var(--surface)}
@@ -531,6 +540,7 @@ ol.footnotes a.fn-back:hover{color:var(--ink)}
     --line-strong:#383835;filter:invert(1) hue-rotate(180deg)}
   /* Everything prints at the page width: no sideways scrolling on paper. */
   .tbl-wrap,.fig-scroll,.code pre{overflow:visible}
+  .tbl-wrap.wide{width:auto;max-width:none}
   svg.chart{min-width:0!important;max-width:100%}
   .code pre{white-space:pre-wrap;overflow-wrap:anywhere}
   .code pre > code{width:auto}
