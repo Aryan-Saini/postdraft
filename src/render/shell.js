@@ -140,7 +140,7 @@ kbd{font:.85em var(--mono);background:var(--surface-2);border:1px solid var(--li
 /* A wide table sizes to its content between the column and the viewport (less
    the page gutter), centred on the column. A grid item overflows its track on
    both sides when centred, so it spills evenly instead of off the right edge. */
-.tbl-wrap.wide{justify-self:center;width:max-content;min-width:100%;max-width:min(calc(100vw - 44px),1240px)}
+.tbl-wrap.wide{justify-self:center;width:max-content;min-width:100%;max-width:min(calc(100vw - 44px),1440px)}
 /* macOS hides overlay scrollbars, so a table that still overflows gave no sign
    it scrolls. A styled scrollbar is always drawn. */
 .tbl-wrap::-webkit-scrollbar{height:8px}
