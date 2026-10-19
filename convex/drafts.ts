@@ -1,8 +1,9 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
+import { questionSpec } from "./schema";
 
-/** A draft by slug, falling back to its Convex document id (same as uploads). */
-async function findDraft(ctx: QueryCtx, draftId: string) {
+/** A draft by slug, falling back to its Convex document id (same as uploads). Also used by answers.ts. */
+export async function findDraft(ctx: QueryCtx, draftId: string) {
   const draft = await ctx.db
     .query("drafts")
     .withIndex("by_draftId", (q) => q.eq("draftId", draftId))
@@ -23,6 +24,7 @@ export const upsert = internalMutation({
     bytes: v.number(),
     metadata: v.optional(v.any()),
     createdBy: v.string(),
+    questions: v.optional(v.array(questionSpec)),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -59,6 +61,7 @@ export const upsert = internalMutation({
       metadata: args.metadata,
       createdBy: args.createdBy,
       description: args.description,
+      questions: args.questions?.length ? args.questions : undefined,
       createdAt: Date.now(),
     });
     return { versionNumber };

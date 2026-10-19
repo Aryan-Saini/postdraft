@@ -145,6 +145,36 @@ It prints the version, date, bytes, uploader, git commit (when uploaded from a
 repo) and URL of each, newest first. `--json` prints the raw response from
 `GET /api/drafts/<id>/versions`.
 
+## Questions
+
+A `question` fence renders an input the reader answers in the page: `short`,
+`long`, `number`, `choice` or `multi`, each with a unique `id`, a `prompt`, and
+optionally an `answer` and an `explain`. With a key the page grades `number`,
+`choice` and `multi` and reveals the answer for all five. The grammar is in the
+`html-communication` skill; `examples/questions.md` has one of each.
+
+```markdown
+​```question
+{"id":"stable","kind":"choice","prompt":"Which one is stable?",
+ "options":["Quicksort","Merge sort"],"answer":"Merge sort"}
+​```
+```
+
+The page keeps every answer in `localStorage` as it is typed, and on Check or
+Save posts it to `POST /api/d/<draftId>/answers`. That endpoint takes no API key
+(the draft id is the credential, as a slug is on `/u/`) and treats its input as
+untrusted: the question must exist in the version the reader has open, its value
+must fit the question (one of the options, a number, at most 1,000 or 10,000
+characters), the body must be JSON under 64 KB, and a question takes one save a
+second. The server learns a version's questions from its HTML at upload.
+
+The latest answer per question is kept, with the 20 before it as history.
+
+```bash
+npx postdraft answers https://<deployment>.convex.site/d/<id>          # readable
+npx postdraft answers https://<deployment>.convex.site/d/<id> --json   # GET /api/drafts/<id>/answers
+```
+
 ## Assets
 
 `asset` publishes files (screenshots, recordings, builds, exports) and prints a URL
@@ -261,8 +291,10 @@ For assets, the same user also needs `s3:PutObject`, `s3:PutObjectTagging`,
 default-src 'none'; img-src https: data:; media-src https: data:; style-src 'unsafe-inline'; font-src data:; script-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; base-uri 'none'; worker-src 'none'
 ```
 
-plus `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The
-not-found page carries the same headers. `/d/<draftId>/raw` is `text/plain` with
+plus `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. A
+version with `question` fences gets one change: `connect-src
+https://<deployment>.convex.site/api/d/<draftId>/answers`, that draft's own answer
+endpoint and no other URL. The not-found page carries the same headers. `/d/<draftId>/raw` is `text/plain` with
 `nosniff` and no CSP, because it is never rendered.
 
 What it guarantees, in a browser: the upload policy allows inline classic

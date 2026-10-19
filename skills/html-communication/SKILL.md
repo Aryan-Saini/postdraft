@@ -22,7 +22,7 @@ npx postplan-aryan@latest upload plan.md    # renders, publishes, prints the URL
 draft under `plan.md`: re-upload the same `.md` and the URL stays, the version
 bumps. The renderer owns typography, colour, spacing, chart geometry and the
 SVG; you own words, structure and numbers. **Never write CSS, never
-hand-position an SVG, never set a font or a colour.** Section 10 is the one
+hand-position an SVG, never set a font or a colour.** Section 11 is the one
 exception.
 
 ## 2 · Document format (always applies)
@@ -572,7 +572,49 @@ unlike `chart schedule`, drawn to scale. States: `done` `now` `next`. Footnotes
 are `[^1]` in the text and `[^1]: The note.` on its own line, collected at the
 end.
 
-## 10 · Need something the renderer has no block for
+## 10 · Need the reader to answer
+
+A `question` fence is one question with a real input. Use it for practice sets,
+quizzes and anything the reader should answer in the document itself.
+
+````markdown
+```question
+{"id":"stable","kind":"choice","prompt":"Which one is a **stable** sort?",
+ "options":["Quicksort","Merge sort","Heapsort"],"answer":"Merge sort",
+ "explain":"Merge takes from the left run on ties."}
+```
+````
+
+| Kind | Input | `answer` | Checked how |
+| --- | --- | --- | --- |
+| `short` | one line | text | revealed, not graded |
+| `long` | textarea | text | revealed, not graded |
+| `number` | one line, takes `0.5`, `-2`, `1e-3` and `2/3` | a number or `"2/3"` | within `tolerance`, default one part in a million |
+| `choice` | pick one | one option, exactly | graded |
+| `multi` | pick any | a list of options | graded, order ignored |
+
+`id` is required and unique in the document: answers are saved under it, so keep it
+when you edit the question. `prompt`, `options`, `answer` and `explain` take inline
+Markdown and `$…$`. `options` (2 to 26) is for `choice` and `multi` only, `tolerance`
+for `number` only. Without `answer` the button says Save and nothing is graded; with
+it, Check shows Correct or Not quite, then the answer and `explain`. The key ships in
+the page, so a reader who opens the source can see it.
+
+Answers save to the browser as the reader types, survive a reload, and go to the
+server on Check or Save. Read them back with:
+
+```bash
+npx postplan-aryan@latest answers <url-or-draft-id>          # one block per question
+npx postplan-aryan@latest answers <url-or-draft-id> --json   # for agents
+```
+
+`--json` is `{ draftId, latestVersionNumber, publicUrl, questions[] }`, each question
+`{ id, kind, prompt, options, expected, answer, correct, savedAt, versionNumber, history[] }`.
+`answer` is the reader's latest (null when unanswered), `expected` the key, `correct`
+true, false or null (no key, or free text). Answers to a question a later version
+dropped come last with `prompt: null`.
+
+## 11 · Need something the renderer has no block for
 
 An `html` fence is emitted verbatim and inherits the document's styling. Use
 the shell's class names rather than inline styles: `mocks` `mock`
@@ -624,11 +666,12 @@ black, white text, no decorative chrome, responsive, variants labelled
 other document is Markdown.
 
 The sandbox: an inline classic script runs, but a CSP blocks `fetch`, frames,
-forms, workers and popups; storage is **not** blocked. Keep a scripted page
+forms, workers and popups; storage is **not** blocked. The one exception is a
+page with `question` fences, which may POST to its own answer endpoint and nothing else. Keep a scripted page
 useful with JavaScript off. In a script-free file give external links
 `target="_blank" rel="noopener noreferrer"`; if any script exists, omit it.
 
-## 11 · When the render fails
+## 12 · When the render fails
 
 Nothing is written and every problem prints at once, one per line:
 
@@ -643,7 +686,7 @@ body, so `/series/0/values` is the first series' values array. Read it literally
 and fix that key: the message names the shape expected and what it got. A JSON
 syntax error points at the offending byte's line, not at the fence.
 
-## 12 · Publish and report back
+## 13 · Publish and report back
 
 Uploading is the point of this skill: every document created or updated with it
 is published. Do not ask for separate permission and never stop at the local file. Write `plan.md`, run

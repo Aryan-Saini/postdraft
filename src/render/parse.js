@@ -290,6 +290,22 @@ function buildMarked(state) {
   return md;
 }
 
+/** @type {Marked | null} */
+let fragments = null;
+
+/**
+ * One run of inline Markdown outside the document flow, such as a question's
+ * prompt or an option, with the same marks and the same escaping of raw HTML as
+ * prose. Inline math comes back as the placeholder `renderInlineMath` fills.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function inlineMarkdown(text) {
+  fragments ??= buildMarked({ footnoteOrder: [] });
+  return /** @type {string} */ (fragments.parseInline(String(text))).trim();
+}
+
 /** A symmetric inline mark (`==x==`) that wraps its parsed content. */
 function inlineWrap(name, re, marker, wrap) {
   return {

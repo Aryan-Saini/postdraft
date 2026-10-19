@@ -424,6 +424,36 @@ details > *:not(summary){margin-top:10px}
 math{font-size:19px;color:var(--ink)}
 .math-block{margin:0 0 20px;padding:12px 0;text-align:center}
 
+/* ---- questions: real inputs on the page plane, a rule between options, no card ---- */
+.q{margin:8px 0 30px}
+.q-prompt{font-weight:600;margin:0 0 10px}
+.q-prompt p{margin:0}
+.q-in{display:block;width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:6px;
+  background:var(--bg);color:var(--ink);font:17px/1.45 var(--sans);caret-color:var(--ink)}
+textarea.q-in{min-height:132px;resize:vertical}
+.q-in:focus{outline:2px solid #5c9cf0;outline-offset:-1px}
+.q-opts{border-top:1px solid var(--line)}
+.q-opt{display:flex;gap:12px;align-items:flex-start;min-height:46px;padding:11px 2px;border-bottom:1px solid var(--line);
+  cursor:pointer}
+.q-opt input{appearance:none;-webkit-appearance:none;flex:none;width:18px;height:18px;margin:3px 0 0;
+  border:1.5px solid var(--ink);border-radius:50%;background:var(--bg);cursor:pointer}
+.q-opt input[type=checkbox]{border-radius:3px}
+.q-opt input:checked{background:var(--ink);box-shadow:inset 0 0 0 3px var(--bg)}
+.q-opt input:focus-visible{outline:2px solid #5c9cf0;outline-offset:2px}
+.q-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-top:12px}
+.q-submit{height:40px;padding:0 20px;border:1px solid #fff;border-radius:999px;background:#fff;color:#000;
+  font:600 15px/1 var(--sans);cursor:pointer}
+.q-submit:hover{background:#e6e6e3;border-color:#e6e6e3}
+.q-submit:focus-visible{outline:2px solid #5c9cf0;outline-offset:2px}
+.q-status{font-size:13.5px;color:var(--ink)}
+.q-status.bad{color:var(--critical)}
+.q-result{margin-top:12px;font-weight:600}
+.q-ok{color:var(--good)} .q-miss{color:var(--critical)}
+.q-reveal{margin-top:10px;padding:2px 0 2px 16px;border-left:3px solid var(--line-strong)}
+.q-reveal p{margin:0 0 6px}
+.q-reveal p:last-child{margin-bottom:0}
+.q-label{font-size:12px;letter-spacing:.07em;text-transform:uppercase;margin-right:6px}
+
 /* ---- comparison grid for mocks ---- */
 .mocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:0 0 20px}
 .mock{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
@@ -522,7 +552,7 @@ ol.footnotes a.fn-back:hover{color:var(--ink)}
   .wrap{max-width:none;padding:0}
   h1{font-size:24pt;margin-top:0}
   .contents,.code-tools,.cx-set,.cx-reset,.slides .arrow,.lightbox,.sprite,.fc-actions,.mf-actions,
-  button.copy{display:none!important}
+  button.copy,.q-foot{display:none!important}
   a{color:#0b4fb3}
   /* Dark-only fills: chips, pills and the done box take the light surface. */
   .chip,.fc-pill,.fence .pill{background:var(--surface-2)}
