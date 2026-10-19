@@ -1,6 +1,6 @@
 {
   "name": "postdraft",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "description": "Publish a self-contained HTML document and get a link back. Convex backend. Originally forked from postplan by t3dotgg.",
   "type": "module",
   "license": "MIT",
