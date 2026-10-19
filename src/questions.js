@@ -6,9 +6,10 @@
  * `data-q`. The page script reads that spec to grade an answer, the upload
  * endpoint reads it (through `extractQuestions`) to learn which questions a
  * version has, and the answer endpoint checks every submission against it with
- * `checkAnswer`. `parseNumber` and `grade` are also embedded in the page script
- * by `Function.prototype.toString`, so they must stay self-contained: no
- * imports, no module-level references except each other by name.
+ * `checkAnswer`. `parseNumber`, `grade`, `checkAnswer` and `toSave` are also
+ * embedded in the page script by `Function.prototype.toString`, so they must
+ * stay self-contained: no imports, no module-level references except each other
+ * and `MAX_ANSWER_CHARS` by name (the page script defines it too).
  *
  * @module questions
  */
@@ -120,6 +121,23 @@ export function checkAnswer(spec, value) {
   if (spec.kind === "choice" && !(spec.options ?? []).includes(text)) return { ok: false, error: "not one of the options" };
   if (spec.kind === "number" && parseNumber(text) === null) return { ok: false, error: "not a number" };
   return { ok: true, value: text };
+}
+
+/**
+ * What the page's autosave should send for the reader's current input, or null
+ * to send nothing: the input is not an answer the server would take (blank, or
+ * not a number yet), or it is the value last sent once normalised by
+ * `checkAnswer`, so trailing spaces never cost a request.
+ *
+ * @param {QuestionSpec} spec
+ * @param {unknown} value
+ * @param {AnswerValue | undefined} last the value last sent, if any
+ * @returns {AnswerValue | null}
+ */
+export function toSave(spec, value, last) {
+  const checked = checkAnswer(spec, value);
+  if (!checked.ok) return null;
+  return last !== undefined && JSON.stringify(last) === JSON.stringify(checked.value) ? null : checked.value;
 }
 
 /** Cap a string from an uploaded page before it is stored. */

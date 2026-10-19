@@ -160,8 +160,9 @@ optionally an `answer` and an `explain`. With a key the page grades `number`,
 ​```
 ```
 
-The page keeps every answer in `localStorage` as it is typed, and on Check or
-Save posts it to `POST /api/d/<draftId>/answers`. That endpoint takes no API key
+The page keeps every answer in `localStorage` as it is typed and autosaves it to
+`POST /api/d/<draftId>/answers` after a pause, on blur and when the page closes;
+only Check grades. That endpoint takes no API key
 (the draft id is the credential, as a slug is on `/u/`) and treats its input as
 untrusted: the question must exist in the version the reader has open, its value
 must fit the question (one of the options, a number, at most 1,000 or 10,000

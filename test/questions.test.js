@@ -6,7 +6,7 @@ import { validateDoc, formatError } from "../src/render/schema/index.js";
 import { validateHtml } from "../src/html-policy.js";
 import { QUESTIONS_SCRIPT } from "../src/render/questions.js";
 import {
-  MAX_ANSWER_CHARS, MAX_QUESTIONS, answerReport, checkAnswer, extractQuestions, grade, parseNumber,
+  MAX_ANSWER_CHARS, MAX_QUESTIONS, answerReport, checkAnswer, extractQuestions, grade, parseNumber, toSave,
 } from "../src/questions.js";
 
 const doc = (...bodies) =>
@@ -61,7 +61,9 @@ test("a question renders working inputs and the page passes the upload policy", 
   assert.equal(html.match(/<input type="checkbox" name="q-primes" value="\d">/g).length, 3);
   assert.match(html, /Capital of <strong>France<\/strong>\?/);
   assert.match(html, /<button type="button" class="q-submit" hidden>Check<\/button>/);
-  assert.match(html, /<button type="button" class="q-submit" hidden>Save<\/button>/);
+  // Autosave makes a Save button redundant: only a question with a key gets one, to Check.
+  assert.equal(html.match(/<button type="button" class="q-submit" hidden>Check<\/button>/g).length, 4);
+  assert.doesNotMatch(html, />Save<\/button>/);
   assert.equal(html.match(/<script>/g).length, 1);
   assert.ok(html.includes(QUESTIONS_SCRIPT));
   assert.deepEqual(validateHtml(html).errors, []);
@@ -123,6 +125,30 @@ test("the server refuses answers that do not fit the question", () => {
   assert.deepEqual(checkAnswer(multi, []), { ok: false, error: "pick at least one option" });
   assert.deepEqual(checkAnswer(multi, "a"), { ok: false, error: "expected a list of options" });
   assert.deepEqual(checkAnswer(multi, ["b", "a"]), { ok: true, value: ["b", "a"] });
+});
+
+test("autosave sends only a value the server would take, and never the same one twice", () => {
+  const short = { id: "s", kind: "short", prompt: "" };
+  const num = { id: "n", kind: "number", prompt: "" };
+  const multi = { id: "m", kind: "multi", prompt: "", options: ["a", "b"] };
+  assert.equal(toSave(short, "  hi ", undefined), "hi");
+  assert.equal(toSave(short, "hi  ", "hi"), null);
+  assert.equal(toSave(short, "hip", "hi"), "hip");
+  assert.equal(toSave(short, "   ", undefined), null);
+  assert.equal(toSave(num, "2/", undefined), null);
+  assert.equal(toSave(num, "2/3", "0.5"), "2/3");
+  assert.deepEqual(toSave(multi, ["a", "b"], ["a"]), ["a", "b"]);
+  assert.equal(toSave(multi, ["a"], ["a"]), null);
+  assert.equal(toSave(multi, [], ["a"]), null);
+});
+
+test("the page script autosaves without grading and flushes a pending edit on hide", () => {
+  // The helpers it calls must be embedded, since the page has no imports.
+  for (const fn of ["checkAnswer", "toSave", "MAX_ANSWER_CHARS"]) assert.match(QUESTIONS_SCRIPT, new RegExp(`const ${fn} = `));
+  assert.match(QUESTIONS_SCRIPT, /setTimeout\(\(\) => save\(\), 1500\)/);
+  assert.match(QUESTIONS_SCRIPT, /addEventListener\("pagehide", flush\)/);
+  assert.match(QUESTIONS_SCRIPT, /visibilityState === "hidden"/);
+  assert.match(QUESTIONS_SCRIPT, /keepalive: !!keepalive/);
 });
 
 test("the answers report lists the latest version's questions, then answers to removed ones", () => {
