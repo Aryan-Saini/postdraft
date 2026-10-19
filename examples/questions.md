@@ -4,7 +4,7 @@ byline: postdraft
 status: Open
 ---
 
-One question of each kind. Answers save as you type and again when you press Check or Save.
+One question of each kind. Answers save as you type; Check grades the ones with a key.
 
 ## Free text
 

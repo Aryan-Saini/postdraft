@@ -596,12 +596,12 @@ quizzes and anything the reader should answer in the document itself.
 `id` is required and unique in the document: answers are saved under it, so keep it
 when you edit the question. `prompt`, `options`, `answer` and `explain` take inline
 Markdown and `$…$`. `options` (2 to 26) is for `choice` and `multi` only, `tolerance`
-for `number` only. Without `answer` the button says Save and nothing is graded; with
+for `number` only. Without `answer` there is no button and nothing is graded; with
 it, Check shows Correct or Not quite, then the answer and `explain`. The key ships in
 the page, so a reader who opens the source can see it.
 
-Answers save to the browser as the reader types, survive a reload, and go to the
-server on Check or Save. Read them back with:
+Answers autosave as the reader types, to the browser and then to the server, and
+survive a reload. Saving never grades: only Check does. Read them back with:
 
 ```bash
 npx postplan-aryan@latest answers <url-or-draft-id>          # one block per question
