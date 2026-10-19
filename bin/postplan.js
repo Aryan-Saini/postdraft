@@ -721,6 +721,46 @@ program
     }
   });
 
+program
+  .command("answers")
+  .argument("<draft>", "Draft id, or any of its URLs")
+  .description("Show the answers readers saved to a draft's questions.")
+  .option("--api-url <url>", "Override the default Postplan API base URL")
+  .option("--json", "Print the raw JSON response")
+  .action(async (draft, options) => {
+    const ref = parseDraftRef(draft);
+    if (!ref) throw new CliError(`Not a draft id or draft URL: ${draft}`);
+    const { apiUrl, apiKey } = readAuth(options.apiUrl);
+    const response = await fetch(`${apiUrl}/api/drafts/${encodeURIComponent(ref.draftId)}/answers`, {
+      headers: { Authorization: `Bearer ${apiKey}` }
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new CliError(body.error || `Failed to read answers (${response.status}).`);
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify(body, null, 2));
+      return;
+    }
+
+    const questions = body.questions || [];
+    const answered = questions.filter((q) => q.answer !== null).length;
+    console.log(`${body.draftId} v${body.latestVersionNumber}: ${answered} of ${questions.length} answered`);
+    console.log(`${body.publicUrl}\n`);
+    const show = (value) => (Array.isArray(value) ? value.join(", ") : String(value));
+    for (const q of questions) {
+      console.log(`${q.id}${q.kind ? ` (${q.kind})` : " (not in the latest version)"}${q.prompt ? `  ${q.prompt}` : ""}`);
+      if (q.answer === null) {
+        console.log("  no answer yet\n");
+        continue;
+      }
+      const verdict = q.correct === true ? "correct" : q.correct === false ? `wrong, expected ${show(q.expected)}` : "";
+      console.log(`  ${show(q.answer).replace(/\n/g, "\n  ")}`);
+      console.log(`  ${[verdict, `saved ${formatDate(q.savedAt)}`, `v${q.versionNumber}`].filter(Boolean).join(" · ")}\n`);
+    }
+  });
+
 program.exitOverride();
 
 program.parseAsync(process.argv).catch((error) => {

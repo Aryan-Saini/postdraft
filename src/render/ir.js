@@ -63,6 +63,9 @@ import { DIAGRAM_FENCES } from "./diagrams/names.js";
 /** One download or a list of them; see `validateFile`.
  * @typedef {BlockBase & { type: "file", info: string, data: unknown }} FileBlock */
 
+/** One answerable question; see `validateQuestion` and `src/questions.js`.
+ * @typedef {BlockBase & { type: "question", info: string, data: unknown }} QuestionBlock */
+
 /** @typedef {BlockBase & { type: "code", lang: string, info: string, source: string, file?: string, title?: string, range?: string, lines?: true }} CodeBlock */
 
 /** @typedef {BlockBase & { type: "diff", info: string, source: string, file?: string, title?: string }} DiffBlock */
@@ -81,7 +84,7 @@ import { DIAGRAM_FENCES } from "./diagrams/names.js";
 /**
  * @typedef {MarkdownBlock | HeadingBlock | CalloutBlock | ContainerBlock | ChartBlock
  *   | StatsBlock | HeroBlock | FlowBlock | SequenceBlock | TimelineBlock | SlidesBlock
- *   | VideoBlock | FileBlock | CodeBlock | DiffBlock | MathBlock | HtmlBlock | FootnotesBlock | DiagramBlock} Block
+ *   | VideoBlock | FileBlock | QuestionBlock | CodeBlock | DiffBlock | MathBlock | HtmlBlock | FootnotesBlock | DiagramBlock} Block
  */
 
 /** @typedef {{ version: 1, meta: Meta, blocks: Block[] }} Doc */
@@ -92,12 +95,12 @@ import { DIAGRAM_FENCES } from "./diagrams/names.js";
 export const BLOCK_TYPES = /** @type {const} */ ([
   "markdown", "heading", "callout", "container", "chart", "stats", "hero",
   "code", "diff", "flow", "sequence", "math", "timeline", "slides", "video",
-  "file", "html", "footnotes", ...DIAGRAM_FENCES,
+  "file", "question", "html", "footnotes", ...DIAGRAM_FENCES,
 ]);
 
 /** Fence kinds that carry a JSON body rather than source text. */
 export const DATA_FENCES = /** @type {const} */ ([
-  "chart", "stats", "hero", "flow", "sequence", "timeline", "slides", "video", "file", ...DIAGRAM_FENCES,
+  "chart", "stats", "hero", "flow", "sequence", "timeline", "slides", "video", "file", "question", ...DIAGRAM_FENCES,
 ]);
 
 /** Callout tones, plus the GitHub alert names that map onto them. */

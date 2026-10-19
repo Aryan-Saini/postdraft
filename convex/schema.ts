@@ -1,6 +1,19 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+/** A question a version carries, read from its `data-q` attributes at upload (see src/questions.js). */
+export const questionSpec = v.object({
+  id: v.string(),
+  kind: v.union(v.literal("short"), v.literal("long"), v.literal("number"), v.literal("choice"), v.literal("multi")),
+  prompt: v.string(),
+  options: v.optional(v.array(v.string())),
+  answer: v.optional(v.union(v.string(), v.number(), v.array(v.string()))),
+  tolerance: v.optional(v.number()),
+});
+
+/** A reader's answer: text, or for `multi` the option texts picked. */
+export const answerValue = v.union(v.string(), v.array(v.string()));
+
 export default defineSchema({
   // A draft is a stable URL. Re-uploading the same file updates it in place and
   // adds a version, which is the whole point of the CLI's draftId round-trip.
@@ -73,8 +86,22 @@ export default defineSchema({
     // Optional: versions written before 0.7.0 have neither.
     createdBy: v.optional(v.string()),
     description: v.optional(v.string()),
+    // The questions this version's HTML carries. Absent on versions without any,
+    // and on every version uploaded before questions existed.
+    questions: v.optional(v.array(questionSpec)),
     createdAt: v.number(),
   })
     .index("by_draft", ["draftId"])
     .index("by_draft_version", ["draftId", "versionNumber"]),
+
+  // The latest answer to one question of one draft, from whoever holds the link,
+  // with up to 20 earlier answers kept in `history`, oldest first.
+  answers: defineTable({
+    draftId: v.string(),
+    questionId: v.string(),
+    versionNumber: v.number(),
+    value: answerValue,
+    savedAt: v.number(),
+    history: v.array(v.object({ value: answerValue, versionNumber: v.number(), savedAt: v.number() })),
+  }).index("by_draft_question", ["draftId", "questionId"]),
 });

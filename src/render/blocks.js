@@ -23,6 +23,7 @@ import { DIAGRAMS, drawOnce, renderDiagram } from "./diagrams/index.js";
 import { renderInlineMath, renderMathBlock, unescapeHtml } from "./math.js";
 import { MEDIA_SCRIPT, withFailPanels } from "./media.js";
 import { FILES_SCRIPT, renderFiles } from "./files.js";
+import { QUESTIONS_SCRIPT, renderQuestion } from "./questions.js";
 import { fileSymbol } from "./filetypes.js";
 
 /** @typedef {import("./ir.js").Block} Block */
@@ -35,14 +36,15 @@ import { fileSymbol } from "./filetypes.js";
  * failure panel needs the media script and its icons, `slides` that a
  * slideshow needs the slides script and the chevrons, and `files` that a file
  * card needs the files script, with `fileIcons` the type glyphs its cards draw,
- * and `controls` that a switchable chart needs the chart script.
+ * `controls` that a switchable chart needs the chart script, and `questions`
+ * that a question needs the questions script.
  * @typedef {{ lightboxes: string[], zoomCount: number, heading: string, chips: boolean, media: boolean,
- *   slides: boolean, files: boolean, controls: boolean, fileIcons: Set<string> }} Ctx */
+ *   slides: boolean, files: boolean, controls: boolean, questions: boolean, fileIcons: Set<string> }} Ctx */
 
 /** @returns {Ctx} */
 const newCtx = () => ({
   lightboxes: [], zoomCount: 0, heading: "", chips: false, media: false, slides: false, files: false, controls: false,
-  fileIcons: new Set(),
+  questions: false, fileIcons: new Set(),
 });
 
 /* ------------------------------------------------------------------ document */
@@ -55,7 +57,8 @@ const newCtx = () => ({
  * each, the icon sprite they reference (top of the body) and the document
  * script (end of the body): the copy script, plus the media script when there
  * are failure panels, the slides script when there is a slideshow, the files
- * script when there are file cards and the chart script when a chart has controls. A document with none of them stays
+ * script when there are file cards, the chart script when a chart has controls and the
+ * questions script when there are questions. A document with none of them stays
  * script-free. The sprite carries only the glyphs the document uses.
  *
  * @param {Doc} doc
@@ -93,7 +96,7 @@ export function renderBody(doc) {
 
   const wrap = `<div class="wrap"><main>\n${parts.filter(Boolean).join("\n")}\n</main></div>`;
   const code = blocks.filter((b) => b.type === "code" || b.type === "diff");
-  if (!code.length && !ctx.chips && !ctx.media && !ctx.slides && !ctx.files && !ctx.controls) return wrap;
+  if (!code.length && !ctx.chips && !ctx.media && !ctx.slides && !ctx.files && !ctx.controls && !ctx.questions) return wrap;
   const icons = code.map((b) => (b.type === "diff" ? "diff" : iconKey(b.lang)));
   if (code.length || ctx.media || ctx.files) icons.push("copy");
   if (ctx.chips || code.some((b) => b.file)) icons.push("file");
@@ -104,7 +107,7 @@ export function renderBody(doc) {
   const have = new Set(icons);
   const glyphs = [...ctx.fileIcons].filter((k) => !have.has(k)).map((k) => fileSymbol(k, `icon-${k}`)).join("");
   const script = [COPY_SCRIPT, ctx.media && MEDIA_SCRIPT, ctx.slides && SLIDES_SCRIPT, ctx.files && FILES_SCRIPT,
-    ctx.controls && CHART_SCRIPT]
+    ctx.controls && CHART_SCRIPT, ctx.questions && QUESTIONS_SCRIPT]
     .filter(Boolean).join("\n");
   // A page whose only script is the chart one references no glyphs, so it gets no sprite.
   const sprite = icons.length || glyphs ? `${codeSprite(icons, glyphs)}\n` : "";
@@ -191,6 +194,9 @@ export function renderBlock(block, ctx = newCtx()) {
     case "slides": return withFailPanels(slides(block, ctx), ctx);
     case "video": return withFailPanels(video(block), ctx);
     case "file": return renderFiles(block, ctx);
+    case "question":
+      ctx.questions = true;
+      return renderQuestion(block);
     case "code": return renderCode(block);
     case "diff": return renderDiff(block);
     case "flow": return renderFlow(block);

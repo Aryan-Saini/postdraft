@@ -22,6 +22,8 @@ import {
   validateTimeline, validateSlides, validateVideo, validateFile, validateInlineMedia, TIMELINE_STATES,
 } from "./media.js";
 import { validateHtmlBlock } from "./html.js";
+import { validateQuestion } from "./question.js";
+import { MAX_QUESTIONS } from "../../questions.js";
 import { FAVICONS } from "../shell.js";
 import { DIAGRAMS } from "../diagrams/index.js";
 
@@ -43,6 +45,7 @@ const VALIDATORS = {
   video: validateVideo,
   file: validateFile,
   html: validateHtmlBlock,
+  question: validateQuestion,
   ...Object.fromEntries(Object.entries(DIAGRAMS).map(([name, d]) => [name, d.validate])),
 };
 
@@ -64,6 +67,8 @@ export function validateDoc(doc, opts = {}) {
 
   /** @type {Map<string, number>} first line each id was claimed on */
   const ids = new Map();
+  /** @type {Map<string, number>} the same for question ids, which key saved answers */
+  const questions = new Map();
 
   for (const block of doc.blocks) {
     if (!block || typeof block !== "object") continue;
@@ -95,11 +100,34 @@ export function validateDoc(doc, opts = {}) {
 
     const validate = VALIDATORS[block.type];
     if (validate && !skipBody) validate(errors, block, file);
+    if (block.type === "question" && !skipBody) questionId(errors, questions, block, file);
     // Prose, callouts, containers and html fences carry their images as HTML.
     if (typeof block.html === "string") validateInlineMedia(errors, block, file);
   }
 
+  if (questions.size > MAX_QUESTIONS) {
+    errors.push({ file, line: 1, block: "document", message: `expected at most ${MAX_QUESTIONS} questions, got ${questions.size}` });
+  }
   return errors;
+}
+
+/**
+ * Claim a question's id for the document. Saved answers are keyed by it, so two
+ * questions sharing one would overwrite each other's answers.
+ * @param {RenderError[]} errors
+ * @param {Map<string, number>} seen
+ * @param {{ data: unknown, line: number }} block
+ * @param {string} file
+ */
+function questionId(errors, seen, block, file) {
+  const id = /** @type {{ id?: unknown } | null} */ (block.data)?.id;
+  if (typeof id !== "string" || !id) return;
+  if (seen.has(id)) {
+    errors.push({ file, line: block.line, block: "question",
+      message: `/id duplicate question id ${JSON.stringify(id)}; first used on line ${seen.get(id)}` });
+  } else {
+    seen.set(id, block.line);
+  }
 }
 
 const ICONS = Object.keys(FAVICONS);

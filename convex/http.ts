@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { validateHtml } from "../src/html-policy.js";
 import { assetSlug, parseAssetKey, taggingHeader, validateSignRequest } from "../src/assets.js";
+import { MAX_OPTIONS, QUESTION_ID, extractQuestions } from "../src/questions.js";
 import { draftKey, presign, s3Config, type S3Config } from "./lib/s3";
 import {
   assetsTarget, backend, publicUrl, putHtml, readText, readUrl, removeObject, storageOrigin, uploadSlot,
@@ -121,6 +122,15 @@ http.route({
       return json({ error: "HTML failed Postplan validation.", errors: validation.errors }, 400);
     }
 
+    // The questions this version carries decide which answers /api/d/ accepts
+    // and whether its CSP may connect at all.
+    let questions;
+    try {
+      questions = extractQuestions(html);
+    } catch (err) {
+      return json({ error: "HTML failed Postplan validation.", errors: [err instanceof Error ? err.message : String(err)] }, 400);
+    }
+
     const id =
       typeof draftId === "string" && draftId
         ? draftId
@@ -149,6 +159,7 @@ http.route({
       bytes,
       metadata: metadata ?? undefined,
       createdBy: auth.account,
+      questions,
     });
 
     const publicUrl = `${baseUrl(request)}/d/${id}`;
@@ -172,16 +183,26 @@ http.route({
   }),
 });
 
-/** Every version of one draft, newest first, each with its own URL. */
+/**
+ * One draft's versions (`/versions`: newest first, each with its own URL) or
+ * the answers readers saved to its questions (`/answers`; see answerReport in
+ * src/questions.js for the shape, which `postdraft answers --json` prints).
+ */
 http.route({
   pathPrefix: "/api/drafts/",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
     const auth = authorize(request);
     if (!auth.ok) return json({ error: "Unauthorized." }, 401);
-    const match = new URL(request.url).pathname.match(/^\/api\/drafts\/([^/]+)\/versions\/?$/);
+    const match = new URL(request.url).pathname.match(/^\/api\/drafts\/([^/]+)\/(versions|answers)\/?$/);
     if (!match) return json({ error: "Not found." }, 404);
-    const found = await ctx.runQuery(internal.drafts.versions, { draftId: decodeURIComponent(match[1]) });
+    const draftId = decodeURIComponent(match[1]);
+    if (match[2] === "answers") {
+      const answers = await ctx.runQuery(internal.answers.forDraft, { draftId });
+      if (!answers) return json({ error: "No such draft." }, 404);
+      return json({ ...answers, publicUrl: `${baseUrl(request)}/d/${answers.draftId}` });
+    }
+    const found = await ctx.runQuery(internal.drafts.versions, { draftId });
     if (!found) return json({ error: "No such draft." }, 404);
     const publicUrl = `${baseUrl(request)}/d/${found.draftId}`;
     return json({
@@ -193,6 +214,54 @@ http.route({
         rawUrl: `${publicUrl}/v/${row.versionNumber}/raw`,
       })),
     });
+  }),
+});
+
+/** Largest answer request taken, in bytes. The longest answer is 10,000 characters. */
+const MAX_ANSWER_BODY = 64 * 1024;
+
+/**
+ * A reader saves an answer: `{ questionId, value, version? }`. No API key: the
+ * draft id is the credential, as the slug is on /u/, and the published page is
+ * the only client. Everything about the answer is checked in `answers.save`.
+ * JSON only: a cross-site page can POST text/plain without a preflight, never JSON.
+ */
+http.route({
+  pathPrefix: "/api/d/",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const match = new URL(request.url).pathname.match(/^\/api\/d\/([^/]+)\/answers$/);
+    if (!match) return json({ error: "Not found." }, 404);
+    if (!(request.headers.get("Content-Type") ?? "").toLowerCase().startsWith("application/json")) {
+      return json({ error: "Expected application/json." }, 415);
+    }
+    if (Number(request.headers.get("Content-Length") ?? 0) > MAX_ANSWER_BODY) return json({ error: "Request too large." }, 413);
+    const text = await request.text();
+    if (text.length > MAX_ANSWER_BODY) return json({ error: "Request too large." }, 413);
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return json({ error: "Invalid JSON." }, 400);
+    }
+    const { questionId, value, version } = (body ?? {}) as Record<string, unknown>;
+    if (typeof questionId !== "string" || !QUESTION_ID.test(questionId)) {
+      return json({ error: "questionId is required." }, 400);
+    }
+    const isValue = typeof value === "string"
+      || (Array.isArray(value) && value.length <= MAX_OPTIONS && value.every((x) => typeof x === "string"));
+    if (!isValue) return json({ error: "value must be text or a list of options." }, 400);
+    if (version !== undefined && version !== null && !(Number.isInteger(version) && (version as number) > 0)) {
+      return json({ error: "version must be a version number." }, 400);
+    }
+    const result = await ctx.runMutation(internal.answers.save, {
+      draftId: decodeURIComponent(match[1]),
+      questionId,
+      value: value as string | string[],
+      versionNumber: typeof version === "number" ? version : undefined,
+    });
+    if (!result.ok) return json({ error: result.error }, result.status);
+    return json({ savedAt: result.savedAt, versionNumber: result.versionNumber });
   }),
 });
 
@@ -615,38 +684,62 @@ http.route({
  * and it does nothing at all for non-browser clients like curl -- the bytes are
  * served verbatim either way.
  *
+ * One opening: a version with `question` fences gets `connect-src` set to that
+ * draft's own answer endpoint, `<origin>/api/d/<draftId>/answers`, and nothing
+ * else. The path is exact, so the page can save answers to its own draft and
+ * still reach no other URL, on this origin or any other. Every other version
+ * keeps `connect-src 'none'`.
+ *
  * This covers `/d/` only. The `/u/` and `/s/` pages are our own HTML, not uploaded
  * HTML, and they need cross-origin fetch, PUT and framing against S3, so they are
  * deliberately left out of it.
  */
-const CSP = [
-  "default-src 'none'",
-  "img-src https: data:",
-  "media-src https: data:",
-  "style-src 'unsafe-inline'",
-  "font-src data:",
-  "script-src 'unsafe-inline'",
-  "connect-src 'none'",
-  "frame-src 'none'",
-  "frame-ancestors 'none'",
-  "form-action 'none'",
-  "base-uri 'none'",
-  "worker-src 'none'",
-].join("; ");
+const draftCsp = (connect: string[] = []): string =>
+  [
+    "default-src 'none'",
+    "img-src https: data:",
+    "media-src https: data:",
+    "style-src 'unsafe-inline'",
+    "font-src data:",
+    "script-src 'unsafe-inline'",
+    `connect-src ${connect.length ? connect.join(" ") : "'none'"}`,
+    "frame-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'none'",
+    "base-uri 'none'",
+    "worker-src 'none'",
+  ].join("; ");
 
 /** Headers for the uploaded HTML we serve from this origin: the sandbox above, plus no sniffing. */
-const htmlSecurityHeaders = {
-  "Content-Security-Policy": CSP,
+const htmlSecurityHeaders = (connect: string[] = []) => ({
+  "Content-Security-Policy": draftCsp(connect),
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
-} as const;
+});
+
+/**
+ * The answer endpoint a draft page may connect to, as CSP sources: one per
+ * origin the reader might be on (the request's own, and the public base URL
+ * when that differs). The id is percent-encoded so it can never end the
+ * directive; an id that needed encoding gets no source at all.
+ */
+function answerSources(request: Request, draftId: string): string[] {
+  if (!/^[A-Za-z0-9_-]+$/.test(draftId)) return [];
+  const origins = new Set([new URL(request.url).origin]);
+  try {
+    origins.add(new URL(baseUrl(request)).origin);
+  } catch {
+    // a malformed POSTPLAN_PUBLIC_BASE_URL: the request's own origin still works
+  }
+  return [...origins].map((origin) => `${origin}/api/d/${draftId}/answers`);
+}
 
 const notFound = (text: string) =>
   new Response("<!doctype html><meta charset=utf-8><title>Not found</title>"
     + `<body style='background:#000;color:#888;font:16px system-ui;padding:48px'>${text}`,
     {
       status: 404,
-      headers: { "Content-Type": "text/html; charset=utf-8", ...htmlSecurityHeaders },
+      headers: { "Content-Type": "text/html; charset=utf-8", ...htmlSecurityHeaders() },
     });
 
 /**
@@ -663,6 +756,8 @@ async function serveDraft(ctx: ActionCtx, request: Request): Promise<Response> {
   );
   const pinned = rest.match(/^(.+)\/v\/(\d+)$/);
 
+  // The id as the reader typed it: the page posts answers to the same one.
+  const requested = pinned ? pinned[1] : rest;
   let version;
   if (pinned) {
     version = await ctx.runQuery(internal.drafts.version, {
@@ -676,6 +771,7 @@ async function serveDraft(ctx: ActionCtx, request: Request): Promise<Response> {
     version = found.version;
   }
 
+  const connect = version.questions?.length ? answerSources(request, requested) : [];
   const html = await readText(ctx, version);
   if (html === null) return new Response("Draft content missing", { status: 502 });
   return new Response(html, {
@@ -685,7 +781,7 @@ async function serveDraft(ctx: ActionCtx, request: Request): Promise<Response> {
       "Cache-Control": pinned ? "private, max-age=31536000, immutable" : "private, max-age=30",
       "X-Postplan-Version": String(version.versionNumber),
       // /raw is plain text and is never rendered, so it needs nosniff but no CSP.
-      ...(raw ? { "X-Content-Type-Options": "nosniff" } : htmlSecurityHeaders),
+      ...(raw ? { "X-Content-Type-Options": "nosniff" } : htmlSecurityHeaders(connect)),
     },
   });
 }
