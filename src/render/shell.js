@@ -339,6 +339,10 @@ a.copy{text-decoration:none}
 /* ---- code: One Dark Pro on the surface, at the editor's 15/1.4 scaled to the page ---- */
 code,.code pre{font-feature-settings:"calt" 1,"ss01" 1;font-variant-ligatures:contextual;tab-size:2}
 .code{border-radius:8px;background:var(--surface);margin:0 0 20px;overflow:hidden;border:1px solid var(--line)}
+/* A top-level code block sizes to its longest line between the column and the viewport
+   (less the page gutter), centred like a wide table. Past that, lines wrap: no code block
+   scrolls sideways. One nested in a list or callout keeps its parent's width. */
+main > .code{justify-self:center;width:max-content;min-width:100%;max-width:min(calc(100vw - 44px),1200px)}
 /* The head wraps rather than truncating a path on a desktop; a phone keeps one row (see the media query). */
 .code-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;min-height:44px;padding:5px 8px 5px 14px;
   border-bottom:1px solid var(--line);background:var(--surface-2)}
@@ -372,15 +376,15 @@ code,.code pre{font-feature-settings:"calt" 1,"ss01" 1;font-variant-ligatures:co
 .copy[hidden]{display:none}
 .copy-icon{width:14px;height:14px;flex:none}
 .sprite{position:absolute;width:0;height:0;overflow:hidden}
-.code pre{margin:0;padding:14px 0;overflow-x:auto;font:15px/1.4 var(--mono);color:#abb2bf}
+.code pre{margin:0;padding:14px 0;white-space:pre-wrap;overflow-wrap:anywhere;font:15px/1.4 var(--mono);color:#abb2bf}
 .code.plain pre{color:var(--ink)}
-.code pre > code{display:block;padding:0 18px;width:max-content;min-width:100%}
+.code pre > code{display:block;padding:0 18px}
 .code code{background:0;border:0;padding:0;font-size:inherit;color:inherit;border-radius:0}
 /* numbered lines: a white 13px gutter, a hairline, and numbers that drag-copy skips */
-.code-lines,.diff-lines{margin:0;padding:0;list-style:none;min-width:max-content}
+.code-lines,.diff-lines{margin:0;padding:0;list-style:none}
 .code-lines{counter-reset:l;position:relative}
 .code-lines::before{content:"";position:absolute;top:-14px;bottom:-14px;left:44px;border-left:1px solid var(--line)}
-.code-lines li,.diff-lines li{white-space:pre;margin:0;display:block}
+.code-lines li,.diff-lines li{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;display:block}
 .code-lines li{counter-increment:l;padding:0 18px 0 58px}
 .code-lines li::before{content:counter(l);display:inline-block;width:32px;margin:0 26px 0 -58px;text-align:right;
   font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums;user-select:none;-webkit-user-select:none}
@@ -388,12 +392,13 @@ code,.code pre{font-feature-settings:"calt" 1,"ss01" 1;font-variant-ligatures:co
 .t-type{color:#e5c07b} .t-var,.t-this,.t-prop,.t-key{color:#e06c75} .t-op{color:#56b6c2}
 .t-punc{color:#abb2bf} .t-com{color:#7f848e;font-style:italic} .t-tag{color:#e06c75}
 .t-attr,.t-flag{color:#d19a66} .t-regex{color:#98c379} .t-esc{color:#56b6c2} .t-meta{color:#e5c07b}
-/* diff: tinted rows, a +/- sign column, context in the default code colour */
-.diff-lines li{padding:0 18px 0 0;color:#abb2bf}
-.d-sign{display:inline-block;width:30px;text-align:center}
+/* diff: tinted rows, a +/- sign column, context in the default code colour. The sign
+   hangs in the row's left padding so a wrapped line continues under the text, not the sign. */
+.diff-lines li{padding:0 18px 0 30px;color:#abb2bf}
+.d-sign{display:inline-block;width:30px;margin-left:-30px;text-align:center}
 .diff-lines .d-add{color:#98c379;background:rgba(152,195,121,.12)}
 .diff-lines .d-del{color:#e06c75;background:rgba(224,108,117,.12)}
-.diff-lines .d-hunk{color:#61afef;padding-left:30px}
+.diff-lines .d-hunk{color:#61afef}
 
 /* ---- timeline ---- */
 .timeline{list-style:none;margin:0 0 20px;padding:0 0 0 20px;border-left:1px solid var(--line-strong)}
@@ -569,11 +574,9 @@ ol.footnotes a.fn-back:hover{color:var(--ink)}
   svg.chart{--ink:#fff;--mark:#898781;--grid:#2c2c2a;--axis:#383835;--surface:#1a1a19;--line:#2c2c2a;
     --line-strong:#383835;filter:invert(1) hue-rotate(180deg)}
   /* Everything prints at the page width: no sideways scrolling on paper. */
-  .tbl-wrap,.fig-scroll,.code pre{overflow:visible}
-  .tbl-wrap.wide{width:auto;max-width:none}
+  .tbl-wrap,.fig-scroll{overflow:visible}
+  .tbl-wrap.wide,main > .code{width:auto;max-width:none}
   svg.chart{min-width:0!important;max-width:100%}
-  .code pre{white-space:pre-wrap;overflow-wrap:anywhere}
-  .code pre > code{width:auto}
   /* Keep a block in one piece and a heading with what follows it. */
   h1,h2,h3,h4{break-after:avoid;page-break-after:avoid}
   .fig,.cv,.note,.code,.stat,.hero,img,svg,tr,.file,.timeline li{break-inside:avoid;page-break-inside:avoid}
