@@ -275,7 +275,8 @@ characters, 12 panels in all.
 
 Flow shapes are `box` `round` `diamond` `store`. Node ids are unique across all
 columns and every edge endpoint must name one; sequence endpoints must name a
-declared actor.
+declared actor. Nodes size to their labels and labels over 28 characters wrap,
+so write the full label and do not abbreviate it to fit.
 
 ### tree
 
@@ -321,7 +322,7 @@ curves. `step` badges an edge near its source.
 ````
 
 `dir` `down` `right`. Node: `id` `label` `shape` (`box` `round` `circle`
-`double` `dot` `diamond`) `tone` `start` (entry arrow) `side` (annotation)
+`double` `dot` `diamond` `store`) `tone` `start` (entry arrow) `side` (annotation)
 `mono` `fill` (a tone wash inside) `below` (a mono caption under the node, such
 as `q = 6`) `rank` (pins the node to a layer; equal ranks share a row and the
 edges between them run straight across). Edge: `from` `to` `label` `tone`

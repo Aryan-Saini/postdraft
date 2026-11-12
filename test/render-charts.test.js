@@ -124,7 +124,7 @@ test("two diagrams on one page get distinct marker ids", () => {
   const seqBlock = doc.blocks.find((b) => b.type === "sequence");
   const a = renderFlow(flowBlock);
   const b = renderSequence(seqBlock);
-  const idOf = (html) => html.match(/<marker id="(arw\d+)"/)[1];
+  const idOf = (html) => html.match(/<marker id="([^"]+)"/)[1];
   assert.notEqual(idOf(a), idOf(b));
   // A second render of the same block mints a fresh id too.
   assert.notEqual(idOf(a), idOf(renderFlow(flowBlock)));
