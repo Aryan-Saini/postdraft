@@ -28,7 +28,7 @@ import { mix } from "../charts.js";
 import { DIAGRAM_TONES, INK, inkOf, markers, text, badge, clip, svgOpen, figure, bounds, textW, n } from "./svg.js";
 import { rank, place } from "./graph-layout.js";
 
-export const SHAPES = /** @type {const} */ (["box", "round", "circle", "double", "dot", "diamond"]);
+export const SHAPES = /** @type {const} */ (["box", "round", "circle", "double", "dot", "diamond", "store"]);
 const DIRS = /** @type {const} */ (["down", "right"]);
 
 /**
@@ -240,17 +240,48 @@ const labelW = (/** @type {string} */ t) => textW(t, 11.5) + 4;
 const font = (/** @type {GraphNode} */ d) => (d.mono ? 12 : 13);
 const captionW = (/** @type {GraphNode} */ d) => (d.below ? textW(d.below, 11.5, true) + 6 : 0);
 
+const WRAP = 28;       // a node label longer than this wraps onto more lines
+const LINE = 16;       // node-label line height
+
+/**
+ * A node label split into lines of roughly equal length, so a long label grows
+ * the node taller rather than stretching the whole diagram wide. Circles and
+ * dots keep one line: they size from their label in both directions.
+ */
+function linesOf(/** @type {GraphNode} */ d) {
+  const label = String(d.label);
+  if (label.length <= WRAP || ["circle", "double", "dot"].includes(d.shape)) return [label];
+  const target = label.length / Math.ceil(label.length / WRAP);
+  /** @type {string[]} */
+  const lines = [];
+  let line = "";
+  for (const word of label.split(/\s+/)) {
+    line = line ? `${line} ${word}` : word;
+    if (line.length >= target) {
+      lines.push(line);
+      line = "";
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
 /** Node size from its label and shape. Circles grow to fit their label. */
 function sizeOf(/** @type {GraphNode} */ d) {
-  const tw = textW(d.label, font(d), d.mono);
+  const lines = linesOf(d);
+  const tw = Math.max(...lines.map((l) => textW(l, font(d), d.mono)));
+  const extra = (lines.length - 1) * LINE;
   switch (d.shape) {
     case "dot": return { w: 9, h: 9, kind: /** @type {const} */ ("ellipse") };
     case "circle": case "double": {
       const r = Math.max(40, tw + (d.shape === "double" ? 26 : 18));
       return { w: r, h: r, kind: /** @type {const} */ ("ellipse") };
     }
-    case "diamond": return { w: Math.max(64, tw * 1.5 + 22), h: 46, kind: /** @type {const} */ ("diamond") };
-    default: return { w: Math.max(44, tw + 26), h: 32, kind: /** @type {const} */ ("rect") };
+    // The text block's corners must stay inside the diamond: at 1.5x the text
+    // width, the height needs about 2.6x the text block's.
+    case "diamond": return { w: Math.max(64, tw * 1.5 + 22), h: Math.max(46, lines.length * LINE * 2.6), kind: /** @type {const} */ ("diamond") };
+    case "store": return { w: Math.max(44, tw + 26), h: 40 + extra, kind: /** @type {const} */ ("rect") };
+    default: return { w: Math.max(44, tw + 26), h: 32 + extra, kind: /** @type {const} */ ("rect") };
   }
 }
 
@@ -997,8 +1028,14 @@ function node(/** @type {Placed} */ p) {
     case "diamond":
       out = `<path d="M${n(x)},${n(y - h / 2)} L${n(x + w / 2)},${n(y)} L${n(x)},${n(y + h / 2)} L${n(x - w / 2)},${n(y)} Z" ${outline}/>`;
       break;
+    case "store": // a cylinder: a database, a bucket, a queue
+      out = `<path d="M${n(x - w / 2)},${n(y - h / 2 + 6)} a${n(w / 2)},6 0 0 1 ${n(w)},0 v${n(h - 12)} a${n(w / 2)},6 0 0 1 ${n(-w)},0 Z" ${outline}/>`;
+      break;
     default:
       out = `<rect x="${n(x - w / 2)}" y="${n(y - h / 2)}" width="${n(w)}" height="${n(h)}" rx="${d.shape === "round" ? n(h / 2) : 6}" ${outline}/>`;
   }
-  return out + text(x, y + 4.5, d.label, { cls: "node-label", mono: d.mono, size: d.mono ? 12 : undefined });
+  const lines = linesOf(d);
+  const top = y + 4.5 - (lines.length - 1) * LINE / 2;
+  return out + lines.map((line, i) =>
+    text(x, top + i * LINE, line, { cls: "node-label", mono: d.mono, size: d.mono ? 12 : undefined })).join("");
 }

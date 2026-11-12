@@ -2,17 +2,19 @@
  * Diagrams as inline SVG.
  *
  * Claude's documents render mermaid; Postplan cannot, because mermaid needs a
- * script at view time. These two layouts cover what mermaid is actually used for
- * in a spec — a left-to-right flow and a call sequence — and compute their own
- * geometry, so a diagram never has to be hand-positioned.
+ * script at view time. These two cover what mermaid is actually used for in a
+ * spec: a left-to-right flow (laid out by the `graph` engine) and a call
+ * sequence. Neither is ever hand-positioned.
  *
  * @module render/diagram
  */
 
-import { toneInk } from "./charts.js";
+import { normalize, render as renderGraph } from "./diagrams/graph.js";
 
 /** @typedef {import("./ir.js").FlowBlock} FlowBlock */
 /** @typedef {import("./ir.js").SequenceBlock} SequenceBlock */
+/** @typedef {{ id: string, label: string, shape?: "box" | "round" | "diamond" | "store", tone?: string }} FlowNode */
+/** @typedef {{ from: string, to: string, label?: string }} FlowEdge */
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const n = (v) => Math.round(v * 100) / 100;
@@ -23,61 +25,6 @@ let markerSeq = 0;
 const arrowDefs = (id) =>
   `<defs><marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">` +
   `<path d="M0,1 L9,5 L0,9 z" fill="#6f6f6a"/></marker></defs>`;
-
-/**
- * Left-to-right flow. `cols` is an array of columns, each an array of
- * { id, label, shape?: 'box' | 'round' | 'diamond' | 'store', tone?: string }.
- * `edges` is [{ from, to, label? }]; ids must be unique across columns.
- */
-export function flow(cols, edges, { title = "", note = "", colW = 168, rowH = 74, boxH = 42 } = {}) {
-  const pos = new Map();
-  const rows = Math.max(...cols.map((c) => c.length));
-  const H = (rows - 1) * rowH + boxH + 24;
-  const W = cols.length * colW - 32;
-  const boxW = colW - 46;
-
-  cols.forEach((col, ci) => {
-    const offset = (rows - col.length) * rowH / 2;
-    col.forEach((node, ri) => {
-      pos.set(node.id, { x: ci * colW, y: offset + ri * rowH + 12, w: boxW, h: boxH, node });
-    });
-  });
-
-  const arw = `arw${++markerSeq}`;
-  let body = arrowDefs(arw);
-  for (const e of edges) {
-    const a = pos.get(e.from), b = pos.get(e.to);
-    if (!a || !b) throw new Error(`flow edge ${e.from} -> ${e.to} names a node that does not exist`);
-    const x1 = a.x + a.w, y1 = a.y + a.h / 2;
-    const x2 = b.x, y2 = b.y + b.h / 2;
-    const mx = (x1 + x2) / 2;
-    const d = Math.abs(y1 - y2) < 1
-      ? `M${n(x1)},${n(y1)} L${n(x2 - 4)},${n(y2)}`
-      : `M${n(x1)},${n(y1)} C${n(mx)},${n(y1)} ${n(mx)},${n(y2)} ${n(x2 - 4)},${n(y2)}`;
-    body += `<path d="${d}" fill="none" stroke="#3a3a37" stroke-width="1.5" marker-end="url(#${arw})"/>`;
-    if (e.label) {
-      body += `<text x="${n(mx)}" y="${n((y1 + y2) / 2 - 6)}" class="edge-label">${esc(e.label)}</text>`;
-    }
-  }
-  for (const { x, y, w, h, node } of pos.values()) {
-    // A node names a tone word, not a colour, and an absent one normalizes to "".
-    const tone = toneInk(node.tone, "#2a2a27");
-    if (node.shape === "diamond") {
-      const cx = x + w / 2, cy = y + h / 2;
-      body += `<path d="M${n(cx)},${n(y - 6)} L${n(x + w)},${n(cy)} L${n(cx)},${n(y + h + 6)} L${n(x)},${n(cy)} Z" ` +
-        `fill="#0b0b0b" stroke="${tone}" stroke-width="1.5"/>`;
-    } else if (node.shape === "store") {
-      body += `<path d="M${n(x)},${n(y + 7)} a${n(w / 2)},7 0 0 1 ${n(w)},0 v${n(h - 14)} a${n(w / 2)},7 0 0 1 ${n(-w)},0 Z" ` +
-        `fill="#0b0b0b" stroke="${tone}" stroke-width="1.5"/>`;
-    } else {
-      const r = node.shape === "round" ? h / 2 : 6;
-      body += `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" rx="${n(r)}" ` +
-        `fill="#0b0b0b" stroke="${tone}" stroke-width="1.5"/>`;
-    }
-    body += `<text x="${n(x + w / 2)}" y="${n(y + h / 2 + 4)}" class="node-label">${esc(node.label)}</text>`;
-  }
-  return figure(`<svg viewBox="-6 -4 ${W + 14} ${H + 8}" width="100%" class="chart diagram" role="img" aria-label="${esc(title || "flow diagram")}">${body}</svg>`, title, note);
-}
 
 /**
  * A call sequence. `actors` is a list of names; `msgs` is
@@ -122,18 +69,16 @@ function figure(svg, title, note) {
 }
 
 /**
- * Render one `flow` block.
+ * Render one `flow` block. A flow is a left-to-right `graph` whose columns are
+ * pinned ranks, so it gets the graph's text-sized nodes and label placement
+ * instead of fixed-width boxes that long labels overflow.
  * @param {FlowBlock} block
  */
 export function renderFlow(block) {
-  const d = /** @type {any} */ (block?.data ?? {});
-  return flow(d.cols ?? [], d.edges ?? [], {
-    title: d.title ?? "",
-    note: d.note ?? "",
-    ...(d.colW ? { colW: d.colW } : {}),
-    ...(d.rowH ? { rowH: d.rowH } : {}),
-    ...(d.boxH ? { boxH: d.boxH } : {}),
-  });
+  const d = /** @type {{ title?: string, note?: string, cols?: FlowNode[][], edges?: FlowEdge[] }} */ (block?.data ?? {});
+  const nodes = (d.cols ?? []).flatMap((col, rank) => col.map((node) => ({ ...node, rank })));
+  const data = normalize({ title: d.title ?? "", note: d.note ?? "", dir: "right", nodes, edges: d.edges ?? [] });
+  return renderGraph({ ...block, data });
 }
 
 /**

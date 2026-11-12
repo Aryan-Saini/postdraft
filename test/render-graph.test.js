@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { parseMarkdown } from "../src/render/index.js";
+import { parseMarkdown, render as renderDoc } from "../src/render/index.js";
+import { textW } from "../src/render/diagrams/svg.js";
 import { validateDoc, formatError } from "../src/render/schema/index.js";
 import { normalize, render } from "../src/render/diagrams/graph.js";
 import { rank, place, spread, crossings } from "../src/render/diagrams/graph-layout.js";
@@ -33,7 +34,7 @@ test("validation names what it expected for each bad input", () => {
   assert.deepEqual(errorsOf({ nodes: [{ id: "a" }, { id: "a" }] }),
     ["g.md:5 graph: /nodes/1/id duplicate node id \"a\"; ids must be unique"]);
   assert.deepEqual(errorsOf({ nodes: [{ id: "a", shape: "hex", tone: "red" }] }), [
-    "g.md:5 graph: /nodes/0/shape expected one of box round circle double dot diamond, got \"hex\"",
+    "g.md:5 graph: /nodes/0/shape expected one of box round circle double dot diamond store, got \"hex\"",
     "g.md:5 graph: /nodes/0/tone expected one of good warn bad flat span c1 c2 c3 c4 c5 c6 c7 c8, got \"red\"",
   ]);
   assert.deepEqual(errorsOf({ nodes: [{ id: "a", x: 3 }], edges: [], colour: 1 }), [
@@ -377,4 +378,28 @@ test("examples/diagrams/ml-graphs.md validates with zero errors", () => {
   const r = parseMarkdown(readFileSync(path, "utf8"), { file: "ml-graphs.md" });
   assert.deepEqual(r.errors, []);
   assert.deepEqual(validateDoc(r.doc, { file: "ml-graphs.md" }).map(formatError), []);
+});
+
+test("a long node label wraps onto lines and the node grows to hold the widest one", () => {
+  const label = "Hold the splash, download with no time limit";
+  const svg = draw({ nodes: [{ id: "a", label }, { id: "b", label: "is an update available?", shape: "diamond" }] });
+  const lines = [...svg.matchAll(/class="node-label"[^>]*>([^<]+)</g)].map((m) => m[1]);
+  assert.deepEqual(lines.slice(0, 2), ["Hold the splash, download", "with no time limit"]);
+  const rect = svg.match(/<rect x="[^"]+" y="[^"]+" width="([^"]+)" height="([^"]+)"/);
+  assert.ok(Number(rect[1]) >= textW("Hold the splash, download"), "box is at least as wide as its widest line");
+  assert.ok(Number(rect[2]) > 32, "box is taller than a one-line box");
+});
+
+test("flow draws through graph: columns stay in order and back or same-column edges still render", () => {
+  const md = "---\ntitle: T\n---\n\n```flow\n" + JSON.stringify({
+    cols: [[{ id: "a", label: "Start", shape: "round" }], [{ id: "b", label: "Check", shape: "diamond" }],
+      [{ id: "c", label: "Store", shape: "store" }, { id: "d", label: "Retry" }]],
+    edges: [{ from: "a", to: "b" }, { from: "b", to: "c", label: "ok" }, { from: "b", to: "d", label: "no" },
+      { from: "d", to: "b" }, { from: "c", to: "d" }],
+  }) + "\n```\n";
+  const r = renderDoc(md);
+  assert.deepEqual(r.errors, []);
+  const xOf = (label) => Number(r.html.match(new RegExp(`<text x="([^"]+)"[^>]*class="node-label"[^>]*>${label}<`))[1]);
+  assert.ok(xOf("Start") < xOf("Check") && xOf("Check") < xOf("Store"));
+  assert.match(r.html, / a[\d.]+,6 0 0 1 /, "store draws as a cylinder");
 });
