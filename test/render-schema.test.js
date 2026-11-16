@@ -155,7 +155,7 @@ test("format is the enum, and the error names the whole enum", () => {
 test("an unknown ::: container lists the container kinds", () => {
   one(
     "::: middle\nA line.\n:::",
-    'plan.md:7 unknown block "::: middle"; kinds: center right subtext columns',
+    'plan.md:7 unknown block "::: middle"; kinds: center right subtext columns, or a colour: red orange amber yellow green teal cyan blue indigo violet purple pink gray white',
   );
 });
 

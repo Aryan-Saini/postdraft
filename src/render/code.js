@@ -16,6 +16,8 @@
  * @module render/code
  */
 
+import { CODE_FONTS } from "./fonts.js";
+
 /** @typedef {import("./ir.js").CodeBlock} CodeBlock */
 /** @typedef {import("./ir.js").DiffBlock} DiffBlock */
 
@@ -77,6 +79,10 @@ const ALIASES = {
   h: "c", "c++": "cpp", cc: "cpp", cxx: "cpp", hpp: "cpp", csharp: "cs", "c#": "cs",
   docker: "dockerfile", make: "makefile", mk: "makefile", dotenv: "env", cfg: "ini",
   gql: "graphql", protobuf: "proto", txt: "text", plain: "text", plaintext: "text",
+  postgres: "sql", postgresql: "sql", plpgsql: "sql", mysql: "sql", sqlite: "sql",
+  hs: "haskell", ml: "ocaml", clj: "clojure", "f#": "fsharp",
+  "objective-c": "objc", objectivec: "objc", "obj-c": "objc",
+  assembly: "asm", nasm: "asm", masm: "asm", gas: "asm", x86asm: "asm", armasm: "asm", s: "asm",
 };
 
 // Canonical keys that borrow another language's tokenizer but keep their own icon.
@@ -870,7 +876,8 @@ export function code(src, { lang = "", file = "", title = "", range = "", lines 
   }
   const head = header({ lang, icon: iconKey(lang), path: file, range: rng?.label, title });
   const cls = canon === "text" ? "code has-head plain" : "code has-head";
-  return `<div class="${cls}">${head}<pre>${body}</pre>${source(text)}</div>`;
+  const font = CODE_FONTS[canon] ? ` data-font="${CODE_FONTS[canon]}"` : "";
+  return `<div class="${cls}"${font}>${head}<pre>${body}</pre>${source(text)}</div>`;
 }
 
 /**

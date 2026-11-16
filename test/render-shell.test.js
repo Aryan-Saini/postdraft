@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { byline, contents, render, renderBlock, renderBody, GENERATOR } from "../src/render/index.js";
 import { parseMarkdown } from "../src/render/parse.js";
 import { CSS, FAVICON_BLACK, FAVICON_INDIGO } from "../src/render/shell.js";
+import { fontFaces } from "../src/render/fonts.js";
 
 const GALLERY = fileURLToPath(new URL("../examples/gallery.md", import.meta.url));
 
@@ -33,6 +34,36 @@ test("the byline is a date pill with a calendar glyph, an author and a status do
   assert.match(byline({ title: "T", status: "Blocked on review" }), /class="chip critical"/);
   assert.match(byline({ title: "T", status: "At risk" }), /class="chip warn"/);
   assert.equal(byline({ title: "T" }), "");
+});
+
+test("a section coloured as a whole keeps its colour in the contents strip", () => {
+  const { doc } = parseMarkdown("# T\n\nlead\n\n## :red[Fix first]\n\n## Half :green[good]\n", { file: "t.md" });
+  const strip = contents(doc.blocks);
+  assert.match(strip, /<a href="#fix-first" style="color:var\(--c-red\)">Fix first<\/a>/);
+  assert.match(strip, /<a href="#half-good">Half good<\/a>/);
+});
+
+test("a code block takes its language's home font, and the page embeds only the fonts it uses", () => {
+  const page = (md) => render(`---\ntitle: T\n---\n\nlead\n\n${md}\n`, { file: "t.md" }).html ?? "";
+  const ts = page("```ts\nconst a = (b) => b ?? 0;\n```");
+  assert.doesNotMatch(ts, /<div class="code[^"]*" data-font=/);
+  assert.match(ts, /font-family:"Inter Variable"/);
+  assert.match(ts, /font-family:"Cascadia Code Variable"/);
+  assert.doesNotMatch(ts, /font-family:"(Go Mono|JetBrains Mono Variable)"/);
+
+  const go = page("```golang\nfunc main() {}\n```");
+  assert.match(go, /<div class="code has-head" data-font="go">/);
+  assert.match(go, /@font-face\{font-family:"Go Mono"/);
+
+  assert.match(page("```python\npass\n```"), /" data-font="jetbrains">/);
+  assert.match(page("```c\nint x;\n```"), /" data-font="cascadia-mono">/);
+  assert.match(page("```nasm\nmov rax, 0x3c\n```"), /" data-font="plex">/);
+  assert.match(page("```\nno language here\n```"), /" data-font="jetbrains">/);
+  assert.match(page("```ruby\nputs 1\n```"), /<div class="code has-head">/);
+  // Swift asks for SF Mono, which only Apple devices have, so nothing extra is embedded.
+  const swift = page("```swift\nlet x = 1\n```");
+  assert.match(swift, /" data-font="sf">/);
+  assert.equal((swift.match(/@font-face/g) ?? []).length, 2);
 });
 
 test("the contents strip is built from the h2 blocks, and needs at least two", () => {
@@ -365,7 +396,8 @@ test("examples/gallery.md renders with no errors", () => {
   // chart labels about 0.5 KB, the "When media fails" examples about 6 KB, and
   // the Files section (five cards, their glyphs, the files script) about 15 KB,
   // and the print stylesheet with the switchable-chart rules about 4 KB.
-  assert.ok(Buffer.byteLength(html) < 160 * 1024, "the gallery stays under 160 KB");
+  // The embedded fonts are a fixed cost per page; the budget is for what the content adds.
+  assert.ok(Buffer.byteLength(html) - Buffer.byteLength(fontFaces(html)) < 160 * 1024, "the gallery stays under 160 KB");
 });
 
 test("an unknown block type renders nothing rather than half a block", () => {

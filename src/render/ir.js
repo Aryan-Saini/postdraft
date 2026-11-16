@@ -25,7 +25,8 @@ import { DIAGRAM_FENCES } from "./diagrams/names.js";
  */
 
 /** @typedef {"note"|"good"|"warn"|"critical"} CalloutTone */
-/** @typedef {"center"|"right"|"subtext"|"columns"} ContainerKind */
+/** @typedef {"center"|"right"|"subtext"|"columns"|Colour} ContainerKind */
+/** @typedef {typeof COLOURS[number]} Colour */
 /** @typedef {1|2|3|4|5|6} HeadingLevel */
 
 /**
@@ -113,6 +114,16 @@ export const ALERT_TONES = {
 
 /** `::: kind` values the renderer understands. */
 export const CONTAINER_KINDS = /** @type {const} */ (["center", "right", "subtext", "columns"]);
+
+/**
+ * Named colours for `:name[text]`, `:bg-name[text]` and `::: name` blocks. Each
+ * maps to a `--c-name` token in shell.js, tuned to read on the true black page.
+ * Any `#rgb` / `#rrggbb` hex works too, inline only.
+ */
+export const COLOURS = /** @type {const} */ ([
+  "red", "orange", "amber", "yellow", "green", "teal", "cyan",
+  "blue", "indigo", "violet", "purple", "pink", "gray", "white",
+]);
 
 /** An empty document, so callers always get a `Doc` back even on a fatal parse. */
 export function emptyDoc() {

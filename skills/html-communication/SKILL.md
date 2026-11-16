@@ -20,10 +20,10 @@ npx postplan-aryan@latest upload plan.md    # renders, publishes, prints the URL
 
 `upload plan.md` renders to `plan.html` and publishes that, but remembers the
 draft under `plan.md`: re-upload the same `.md` and the URL stays, the version
-bumps. The renderer owns typography, colour, spacing, chart geometry and the
-SVG; you own words, structure and numbers. **Never write CSS, never
-hand-position an SVG, never set a font or a colour.** Section 11 is the one
-exception.
+bumps. The renderer owns typography, spacing, chart geometry and the SVG; you
+own words, structure, numbers and colour. **Never write CSS, never
+hand-position an SVG, never set a font.** Colour is Markdown, `:red[text]`
+(section 2), never HTML.
 
 ## 2 · Document format (always applies)
 
@@ -68,9 +68,33 @@ the same numbers.
 step down in size, not colour), `::: columns` (blank-line-separated paragraphs
 become columns, collapsing under 520px).
 
+**Colour.** One mark, anywhere inline text goes: headings, list items, table
+cells, callouts, inside or around bold.
+
+```markdown
+## :red[Fix first]
+
+The payout bug costs :red[$412 a week]. Conversion is :green[up 18%].
+Brand blue is :#3987e5[this hex]. :bg-amber[Needs legal sign-off] by Friday.
+**:red[Do not merge]** until the refund ships.
+
+::: teal
+A whole block in one colour.
+:::
+```
+
+Names: `red orange amber yellow green teal cyan blue indigo violet purple pink
+gray white`. Inline also takes any `#rgb` or `#rrggbb`; a `bg-` prefix puts a
+wash behind white text instead. An unknown name fails the render and lists the
+names. Default to colouring each `##` by what the section means: red for broken
+or costing money, amber for risk or friction, green for wins and ideas, blue
+for neutral reference, violet for open questions. A heading wrapped whole keeps
+its colour in the contents strip. In prose, colour what a reader should catch
+at a glance.
+
 **Voice.** Sentence case, short sentences, no em dashes, no marketing, no "it's
-worth noting". Sources and caveats go last, under `## Sources`. **No grey text.
-Every glyph is white; hierarchy is size and weight.** Figure notes are
+worth noting". Sources and caveats go last, under `## Sources`. Text is white
+until you colour it; hierarchy is size and weight. Figure notes are
 fragments, not sentences: "September is partial", not "Note that September is
 partial through the 22nd and should be read with care."
 
@@ -184,9 +208,27 @@ tiles of `k` label, `v` number, `as` as-of line, `delta` change text, `tone`,
 ## 5 · Need code or a diff
 
 A plain fence with a language is highlighted. `file=` or `title=` adds a header,
-the bare word `lines` numbers them. Languages: `ts js py sh sql rust go json
-yaml html xml css md toml` plus the usual aliases; anything else renders
-escaped.
+the bare word `lines` numbers them. Languages: `ts js py sh sql rust go erlang
+elixir ruby java kotlin swift c cpp cs php graphql proto json yaml html xml css
+md toml dockerfile makefile env ini` plus the usual aliases; anything else
+renders escaped.
+
+**Always name the language.** It picks the block's font as well as its colours:
+the font that language's own tools ship, embedded so it shows on every device.
+
+| Fence language | Font |
+| --- | --- |
+| `ts` `js` `tsx` `jsx` `sh` `json`, anything unlisted, inline `code` | Cascadia Code, ligatures on |
+| `c` `cpp` `cs` | Cascadia Mono (ligatures off) |
+| `py` `java` `kotlin` `scala` `sql`, and a fence with no language | JetBrains Mono |
+| `go` | Go Mono |
+| `rust` | Source Code Pro |
+| `erlang` `elixir` `haskell` `ocaml` `clojure` `fsharp` | Fira Code |
+| `asm` `nasm` `gas` `armasm` | IBM Plex Mono |
+| `swift` `objc` | SF Mono on Apple devices, Cascadia elsewhere |
+
+Prose is Inter. A page embeds only the code fonts it uses, about 15 to 55 KB
+each on top of the 130 KB every page carries.
 
 ````markdown
 ```ts file=src/upload.ts lines
@@ -628,8 +670,8 @@ the shell's class names rather than inline styles: `mocks` `mock`
 `meter-fill` `meter-head`.
 
 **Colour inside a fence.** Colour in mocks means something (up, down, a series);
-never decoration. These classes work only inside an `html` fence (prose stays
-white) and use only the palette tokens:
+never decoration. These classes work only inside an `html` fence (in prose use
+`:red[…]`, section 2) and use only the palette tokens:
 
 | Class | Colour / effect | Example |
 |---|---|---|
