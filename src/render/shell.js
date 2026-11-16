@@ -4,13 +4,14 @@
  *
  * @module render/shell
  */
+
+import { CODE_FONT_CSS, fontFaces } from "./fonts.js";
 //
-// One <style> block, no external stylesheet, no webfont. The type scale copies
-// Claude's document renderer, measured off a PDF export: a ~700px column, body
-// at 17px on a 25px line, list pitch 28px, serif headings at regular weight
-// (h1 34, h2 24, h3 19.5), filled byline chips, fully gridded tables. Anthropic
-// Serif / Sans / Mono are not shippable, so each gets the nearest system stack.
-// The page plane stays true black; chart colours are the validated dark palette.
+// One <style> block, no external stylesheet. Prose is Inter (the font T3 Code
+// bundles) and code is Cascadia Code or its language's own font, embedded by fonts.js: a ~700px column, body at 17px on a
+// 25px line, sans headings at semibold with tight tracking, filled byline chips,
+// fully gridded tables. The page plane stays true black; chart colours are the
+// validated dark palette, and `--c-*` are the named colours for `:red[text]`.
 
 export const CSS = `
 :root{
@@ -19,11 +20,11 @@ export const CSS = `
   --surface-2:#232321;
   --line:#2c2c2a;            /* gridline hairline */
   --line-strong:#383835;     /* baseline / axis / table rule */
-  /* No grey text. Every glyph in the document is white and hierarchy is carried
-     by size and weight: metadata at 12-14px regular, body at 17px, labels at
-     600. Hairlines, panels, dots and the chart palette keep their own colour,
-     and so do the syntax-highlight tokens, which are not grey. The one other
-     exception is the colour utilities an html fence may use (see .fence). */
+  /* Text is white unless the author colours it. Hierarchy is size and weight:
+     metadata at 12-14px regular, body at 17px, labels at 600. Colour comes from
+     the author (:red[…], ::: red, the html fence utilities in .fence), from
+     tones that mean something (callouts, deltas, table cells), the chart palette
+     and syntax highlighting. The renderer never greys text on its own. */
   --ink:#fff;                /* every glyph */
   --mark:#898781;            /* dots and other non-text marks, never a glyph */
   --grid:#2c2c2a;
@@ -31,10 +32,17 @@ export const CSS = `
   --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
   --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
   --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --critical:#d03b3b;
-  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
-  --sans:system-ui,-apple-system,"Segoe UI",Inter,Roboto,sans-serif;
-  /* Aryan's editor font stack (VS Code / Cursor), with the system monospace as the floor */
-  --mono:"Cascadia Code","Cascadia Mono","JetBrains Mono",Menlo,Monaco,ui-monospace,monospace;
+  /* Named colours for :name[text], :bg-name[text] and ::: name */
+  --c-red:#e5484d; --c-orange:#f76b15; --c-amber:#fab219; --c-yellow:#ffe629;
+  --c-green:#30a46c; --c-teal:#12a594; --c-cyan:#00a2c7; --c-blue:#3987e5;
+  --c-indigo:#6e6ade; --c-violet:#9085e9; --c-purple:#b658c4; --c-pink:#d6409f;
+  --c-gray:#9b9b9b; --c-white:#fff;
+  /* Inter first (embedded, see fonts.js), then T3 Code's own fallbacks */
+  --sans:"Inter Variable",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  /* Cascadia Code (embedded, see fonts.js), then T3 Code's own mono fallbacks.
+     A code block in another language swaps --mono for its own font (CODE_FONTS). */
+  --mono-fallback:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --mono:"Cascadia Code Variable","Cascadia Code",var(--mono-fallback);
 }
 *{box-sizing:border-box}
 /* A component's display:block/flex must not beat the hidden attribute. */
@@ -48,11 +56,11 @@ body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 var(--sans);
 main{display:grid;grid-template-columns:minmax(0,1fr)}
 main > *{min-width:0}
 
-/* ---- headings: serif, regular weight, like the renderer ---- */
-h1,h2,h3{font-family:var(--serif);font-weight:400;color:var(--ink);letter-spacing:-.005em}
-h1{font-size:46px;line-height:1.12;margin:0 0 30px;letter-spacing:-.01em}
-h2{font-size:24px;line-height:1.25;margin:44px 0 12px;scroll-margin-top:16px}
-h3{font-size:19.5px;line-height:1.3;margin:30px 0 8px}
+/* ---- headings: the body sans at semibold, tracked in as they grow ---- */
+h1,h2,h3{font-family:var(--sans);font-weight:600;color:var(--ink)}
+h1{font-size:40px;line-height:1.1;margin:0 0 26px;letter-spacing:-.025em}
+h2{font-size:23px;line-height:1.25;margin:44px 0 12px;letter-spacing:-.015em;scroll-margin-top:16px}
+h3{font-size:19px;line-height:1.3;margin:30px 0 8px;letter-spacing:-.01em}
 h4{font:600 17px/1.4 var(--sans);color:var(--ink);margin:24px 0 6px}
 h2 + p,h3 + p,h4 + p{margin-top:0}
 
@@ -73,7 +81,12 @@ h2 + p,h3 + p,h4 + p{margin-top:0}
 
 /* ---- prose ---- */
 p{margin:0 0 14px}
-strong{color:var(--ink);font-weight:600}
+strong{font-weight:600}
+/* :bg-name[text]: a wash of the colour behind white text */
+.hl{background:color-mix(in srgb,var(--hl) 24%,transparent);border-radius:3px;padding:0 .2em;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone}
+/* ::: name tints a whole block; lists and quotes inside follow it */
+.tint{margin:0 0 14px} .tint li::marker,.tint blockquote{color:inherit}
 a{color:#5c9cf0;text-decoration:underline;text-decoration-color:rgba(92,156,240,.45);text-underline-offset:3px}
 a:hover{text-decoration-color:#5c9cf0}
 ul,ol{margin:0 0 14px;padding-left:26px}
@@ -337,7 +350,8 @@ a.copy{text-decoration:none}
 .meter-fill{height:100%;border-radius:3px}
 
 /* ---- code: One Dark Pro on the surface, at the editor's 15/1.4 scaled to the page ---- */
-code,.code pre{font-feature-settings:"calt" 1,"ss01" 1;font-variant-ligatures:contextual;tab-size:2}
+code,.code pre{font-feature-settings:var(--code-features,"calt" 1,"ss01" 1);
+  font-variant-ligatures:var(--code-ligatures,contextual);tab-size:2}
 .code{border-radius:8px;background:var(--surface);margin:0 0 20px;overflow:hidden;border:1px solid var(--line)}
 /* A top-level code block sizes to its longest line between the column and the viewport
    (less the page gutter), centred like a wide table. Past that, lines wrap: no code block
@@ -611,8 +625,8 @@ export const FAVICONS = { black: FAVICON_BLACK, indigo: FAVICON_INDIGO };
 /** @typedef {keyof typeof FAVICONS} Icon */
 
 /**
- * Wrap body HTML in a complete, self-contained document: one <style>, no
- * external stylesheet, no webfont. The only script is the inline one a body
+ * Wrap body HTML in a complete, self-contained document: one <style> with the
+ * fonts embedded, no external stylesheet. The only script is the inline one a body
  * with code blocks, file chips, media or a slideshow brings for copying,
  * revealing media failure panels and paging slideshows.
  *
@@ -635,7 +649,7 @@ export function page({ title, body, generator, icon = "black" }) {
 <meta name="color-scheme" content="dark">${stamp}
 <title>${t}</title>
 <link rel="icon" type="image/svg+xml" href="${favicon}">
-<style>${CSS}</style>
+<style>${fontFaces(body)}${CSS}${CODE_FONT_CSS}</style>
 </head>
 <body>
 ${body}

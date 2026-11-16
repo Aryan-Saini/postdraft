@@ -3,13 +3,13 @@
  *
  * marked does CommonMark and GFM; everything Postplan adds on top is a marked
  * extension here (`:::` containers, GitHub alerts, `==`/`++`/`~`/`^`, footnotes,
- * `$…$`), and everything structural is a fence routed by its info string.
+ * `$…$`, `:red[…]` colour), and everything structural is a fence routed by its info string.
  *
  * @module render/parse
  */
 
 import { Marked } from "marked";
-import { ALERT_TONES, BLOCK_TYPES, DATA_FENCES, emptyDoc } from "./ir.js";
+import { ALERT_TONES, BLOCK_TYPES, COLOURS, DATA_FENCES, emptyDoc } from "./ir.js";
 
 /** @typedef {import("./ir.js").Block} Block */
 /** @typedef {import("./ir.js").Doc} Doc */
@@ -21,6 +21,35 @@ import { ALERT_TONES, BLOCK_TYPES, DATA_FENCES, emptyDoc } from "./ir.js";
 const DATA_FENCE_SET = new Set(DATA_FENCES);
 const META_KEYS = /** @type {const} */ (["title", "byline", "date", "status", "tab", "icon"]);
 const KNOWN_META = new Set(META_KEYS);
+
+const COLOUR_SET = new Set(/** @type {readonly string[]} */ (COLOURS));
+/** `grey` is the one spelling agents reach for that is not in the list. */
+const COLOUR_ALIASES = /** @type {Record<string, string>} */ ({ grey: "gray" });
+/** Where a colour mark may start: `:name[` or `:#hex[`, not glued to a word (`Note:see[1]`). */
+const COLOUR_START = /(?<![\p{L}\p{N}_]):(?:bg-)?(?:[a-z]+|#[0-9a-fA-F]{3,6})\[/u;
+const COLOUR_OPEN = /^:(bg-)?([a-z]+|#[0-9a-fA-F]{6}(?![0-9a-fA-F])|#[0-9a-fA-F]{3}(?![0-9a-fA-F]))\[/;
+
+/**
+ * The CSS value for a colour name or hex, or null for a name not in `COLOURS`.
+ * @param {string} name
+ */
+export function colourValue(name) {
+  if (name.startsWith("#")) return name.toLowerCase();
+  const n = COLOUR_ALIASES[name] ?? name;
+  return COLOUR_SET.has(n) ? `var(--c-${n})` : null;
+}
+
+/** Index of the `]` closing a `[` that ends just before `from`, honouring nesting and `\` escapes; -1 if none. */
+function closingBracket(src, from) {
+  let depth = 1;
+  for (let i = from; i < src.length; i++) {
+    const c = src[i];
+    if (c === "\\") { i++; continue; }
+    if (c === "[") depth++;
+    else if (c === "]" && --depth === 0) return i;
+  }
+  return -1;
+}
 
 /** Cell tone prefixes allowed in a GFM table cell, mapped to their class suffix. */
 const CELL_TONES = { good: "good", warn: "warn", bad: "bad", flat: "flat" };
@@ -144,7 +173,7 @@ export function parseInfo(info) {
  * Build a Marked instance wired to one parse. The footnote registry lives in the
  * closure because numbering depends on reference order across the whole document.
  *
- * @param {{ footnoteOrder: string[] }} state
+ * @param {{ footnoteOrder: string[], badColours?: string[] }} state
  */
 function buildMarked(state) {
   const md = new Marked({ gfm: true, breaks: false });
@@ -239,6 +268,33 @@ function buildMarked(state) {
         },
         renderer(token) {
           return `<span class="math-inline" data-tex="${escapeHtml(token.tex)}"></span>`;
+        },
+      },
+      {
+        // `:red[text]`, `:#3987e5[text]`, `:bg-amber[text]`. The content is inline
+        // Markdown, so bold, links and code nest inside, and it works anywhere
+        // inline text does: headings, list items, table cells, callouts.
+        name: "colour",
+        level: "inline",
+        start: (src) => src.match(COLOUR_START)?.index,
+        tokenizer(src) {
+          const m = COLOUR_OPEN.exec(src);
+          if (!m) return undefined;
+          const end = closingBracket(src, m[0].length);
+          if (end === -1) return undefined;
+          const value = colourValue(m[2]);
+          if (!value) state.badColours?.push(m[0]);
+          return {
+            type: "colour", raw: src.slice(0, end + 1), bg: !!m[1], value,
+            tokens: this.lexer.inlineTokens(src.slice(m[0].length, end)),
+          };
+        },
+        renderer(token) {
+          const inner = this.parser.parseInline(token.tokens);
+          if (!token.value) return inner;
+          return token.bg
+            ? `<span class="hl" style="--hl:${token.value}">${inner}</span>`
+            : `<span style="color:${token.value}">${inner}</span>`;
         },
       },
       inlineWrap("highlight", /^==(?!=)([\s\S]+?)==/, "==", (inner) => `<mark>${inner}</mark>`),
@@ -361,7 +417,7 @@ export function parseMarkdown(text, opts = {}) {
     else errors.push({ file, line: fm.lines[k] ?? 1, block: "frontmatter", message: `unknown frontmatter key "${k}"; keys: ${META_KEYS.join(" ")}` });
   }
 
-  const state = { footnoteOrder: /** @type {string[]} */ ([]) };
+  const state = { footnoteOrder: /** @type {string[]} */ ([]), badColours: /** @type {string[]} */ ([]) };
   const md = buildMarked(state);
   // The block-level API renders a run of inline tokens only from inside a
   // renderer; a parser built from the same options does it from out here.
@@ -492,6 +548,17 @@ export function parseMarkdown(text, opts = {}) {
       return { label, html: footnoteBodies.get(label) ?? "" };
     });
     blocks.push({ id: nextId("footnotes"), type: "footnotes", line: countLines(src) + 1, items });
+  }
+
+  // Inline tokens carry no line, so a bad colour is found again by its opening text.
+  let searchFrom = 0;
+  for (const open of state.badColours) {
+    const at = src.indexOf(open, searchFrom);
+    if (at !== -1) searchFrom = at + open.length;
+    errors.push({
+      file, line: at === -1 ? 1 : countLines(src.slice(0, at)) + 1, block: "colour",
+      message: `unknown colour "${open}…]"; colours: ${COLOURS.join(" ")}, or a hex like :#3987e5[…]`,
+    });
   }
 
   if (!meta.title) errors.push({ file, line: 1, block: "frontmatter", message: "no title: add a frontmatter title or an opening # heading" });

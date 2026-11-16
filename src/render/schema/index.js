@@ -13,7 +13,7 @@
  * @module render/schema
  */
 
-import { CONTAINER_KINDS } from "../ir.js";
+import { COLOURS, CONTAINER_KINDS } from "../ir.js";
 import { FORMATS, TONES, MAX_SERIES } from "./common.js";
 import { CHART_KINDS, validateChart } from "./chart.js";
 import { validateTiles } from "./tiles.js";
@@ -49,7 +49,7 @@ const VALIDATORS = {
   ...Object.fromEntries(Object.entries(DIAGRAMS).map(([name, d]) => [name, d.validate])),
 };
 
-const CONTAINER_SET = new Set(CONTAINER_KINDS);
+const CONTAINER_SET = new Set([...CONTAINER_KINDS, ...COLOURS]);
 
 /**
  * Validate a parsed document.
@@ -93,7 +93,7 @@ export function validateDoc(doc, opts = {}) {
     if (block.type === "container" && !CONTAINER_SET.has(block.kind)) {
       errors.push({
         file, line: block.line, block: "",
-        message: `unknown block "::: ${block.kind}"; kinds: ${CONTAINER_KINDS.join(" ")}`,
+        message: `unknown block "::: ${block.kind}"; kinds: ${CONTAINER_KINDS.join(" ")}, or a colour: ${COLOURS.join(" ")}`,
       });
       continue;
     }

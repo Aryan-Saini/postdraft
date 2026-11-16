@@ -14,7 +14,7 @@
  * @module render/blocks
  */
 
-import { escapeHtml } from "./parse.js";
+import { colourValue, escapeHtml } from "./parse.js";
 import { meter, sparkline } from "./charts.js";
 import { CHART_SCRIPT, isControlled, renderChartBlock } from "./chart-controls.js";
 import { COPY_SCRIPT, codeSprite, iconKey, pathButton, renderCode, renderDiff } from "./code.js";
@@ -156,7 +156,12 @@ function statusTone(status) {
 export function contents(blocks) {
   const tops = blocks.filter((b) => b.type === "heading" && b.level === 2);
   if (tops.length < 2) return "";
-  const links = tops.map((h) => `<a href="#${escapeHtml(h.slug)}">${escapeHtml(h.text)}</a>`).join("");
+  const links = tops.map((h) => {
+    // A section coloured as a whole (`## :red[Fix first]`) keeps its colour here.
+    const colour = /^<span style="color:([^"]+)">(?:(?!<span style="color:)[\s\S])*<\/span>$/.exec(h.html ?? "")?.[1];
+    const style = colour ? ` style="color:${colour}"` : "";
+    return `<a href="#${escapeHtml(h.slug)}"${style}>${escapeHtml(h.text)}</a>`;
+  }).join("");
   return `<div class="contents">${links}</div>`;
 }
 
@@ -183,8 +188,12 @@ export function renderBlock(block, ctx = newCtx()) {
       const cls = block.tone === "note" ? "note" : `note ${block.tone}`;
       return `<div class="${cls}"><span class="tag">${escapeHtml(block.title)}</span>\n<div>${withFailPanels(fileChips(block.html, ctx), ctx)}</div></div>`;
     }
-    case "container":
-      return `<div class="${escapeHtml(block.kind)}">\n${withFailPanels(fileChips(block.html, ctx), ctx)}\n</div>`;
+    case "container": {
+      // A colour kind (`::: red`) tints the whole block; the rest are layout classes.
+      const colour = colourValue(block.kind);
+      const open = colour ? `<div class="tint" style="color:${colour}">` : `<div class="${escapeHtml(block.kind)}">`;
+      return `${open}\n${withFailPanels(fileChips(block.html, ctx), ctx)}\n</div>`;
+    }
     case "chart":
       if (isControlled(block.data)) ctx.controls = true;
       return drawOnce(block, () => renderChartBlock(block));

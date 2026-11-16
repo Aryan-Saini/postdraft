@@ -255,6 +255,44 @@ test("parseIr accepts a built IR and fills ids and lines", () => {
   assert.deepEqual(doc.blocks.map((b) => [b.id, b.line]), [["markdown-1", 1], ["c", 2]]);
 });
 
+test(":name[text] colours any inline run, headings and table cells included", () => {
+  assert.match(html(TITLED("Costs :red[$412 a week] now.")), /<span style="color:var\(--c-red\)">\$412 a week<\/span>/);
+  assert.match(html(TITLED("Brand :#3987E5[blue].")), /<span style="color:#3987e5">blue<\/span>/);
+  assert.match(html(TITLED(":bg-amber[Needs sign-off]")), /<span class="hl" style="--hl:var\(--c-amber\)">Needs sign-off<\/span>/);
+  assert.match(html(TITLED("Text :grey[aside].")), /color:var\(--c-gray\)/);
+
+  // Inline Markdown nests inside, brackets included, and the mark nests inside bold.
+  assert.match(html(TITLED(":green[**up** [18%](https://x.dev) `n`]")),
+    /<span style="color:var\(--c-green\)"><strong>up<\/strong> <a href="https:\/\/x.dev">18%<\/a> <code>n<\/code><\/span>/);
+  assert.match(html(TITLED("**:red[Do not merge]**")), /<strong><span style="color:var\(--c-red\)">Do not merge<\/span><\/strong>/);
+
+  const h = only(TITLED("intro\n\n## :red[Fix first]"), "heading");
+  assert.equal(h.html, '<span style="color:var(--c-red)">Fix first</span>');
+  assert.equal(h.text, "Fix first");
+  assert.equal(h.slug, "fix-first");
+
+  assert.match(html(TITLED("| Bug | Cost |\n| - | - |\n| Payout | :amber[Medium] |")), /<td><span style="color:var\(--c-amber\)">Medium<\/span><\/td>/);
+});
+
+test("colour marks leave look-alike prose alone", () => {
+  assert.doesNotMatch(html(TITLED("Note:red[1] and `:red[x]` and :red[unclosed")), /<span/);
+});
+
+test("an unknown colour is an error at its line that lists the colours", () => {
+  const { errors } = parseMarkdown(TITLED("Fine.\n\nThis is :purpel[wrong]."), { file: "t.md" });
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].line, 7);
+  assert.match(errors[0].message, /^unknown colour ":purpel\[…\]"; colours: red orange .* white, or a hex like :#3987e5\[…\]$/);
+});
+
+test("::: name tints a whole block", () => {
+  const src = TITLED("intro\n\n::: teal\nA whole block.\n:::");
+  assert.equal(only(src, "container").kind, "teal");
+  const { html: page, errors } = render(src, { file: "t.md" });
+  assert.deepEqual(errors, []);
+  assert.match(page ?? "", /<div class="tint" style="color:var\(--c-teal\)">\n<p>A whole block.<\/p>/);
+});
+
 test("parseIr rejects a bad shape without throwing", () => {
   assert.match(parseIr(null).errors[0].message, /must be an object/);
   assert.match(parseIr({ version: 2, meta: { title: "T" }, blocks: [] }).errors[0].message, /unsupported IR version 2/);

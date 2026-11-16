@@ -11,15 +11,15 @@ and the whole page is one file under 512 KB.
 
 ## Type
 
-Body copy sits at 17px on a 25px line, the renderer's own measure, and reads in primary white. **Bold**
-lifts a phrase to primary white; the rest of the sentence stays one step down, which is what keeps a dense
-page from glaring. Inline `const x = 1` and a [link](https://claude.ai) read without breaking the line
+Body copy sits at 17px on a 25px line in T3 Code's UI font, white until the author colours it. **Bold**
+lifts a phrase by weight. :red[Any run] can take a :green[named colour], a :#3987e5[hex] or a
+:bg-amber[wash behind it], and `::: name` tints a whole block. Inline `const x = 1` and a [link](https://claude.ai) read without breaking the line
 rhythm. ==Highlighted== text, ++underlined++ text and ~~struck~~ text read as expected; water is H~2~O and
 the area scales as r^2^.[^measure]
 
-### Third level heading, serif
+### Third level heading
 
-Second and third level headings are the serif at regular weight; the fourth is the sans, semibold.
+Headings are the body sans at semibold, tracked in as they grow.
 
 #### Fourth level heading
 
